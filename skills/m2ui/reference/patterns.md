@@ -756,3 +756,335 @@ if app.__BL_CLIP_MASK__:
 - Call `SetClippingMaskWindow` after `SetParent` and before `Show`
 - The clipping window must be the scrollable container, not the root window
 - Without clip mask, fall back to Hide/Show based on item index (old behavior)
+
+---
+
+## 7. Composite Patterns
+
+Reusable UI compositions built from existing widgets. No C++ changes or
+new widget types required.
+
+### 7.1 Collapsible section
+
+A header button that expands/collapses a child container. Useful for
+settings panels, categorized lists, and accordion-style UIs.
+
+```python
+ARROW_DOWN = "▼ "
+ARROW_RIGHT = "► "
+
+def __CreateCollapsibleSection(self, parent, title, yPos, contentHeight):
+    container = ui.Window()
+    container.SetParent(parent)
+    container.SetPosition(10, yPos)
+    container.SetSize(parent.GetWidth() - 20, 25 + contentHeight)
+    container.Show()
+    self.InsertChild("section_" + title, container)
+
+    header = ui.Button()
+    header.SetParent(container)
+    header.SetUpVisual("d:/ymir work/ui/public/large_button_01.sub")
+    header.SetOverVisual("d:/ymir work/ui/public/large_button_02.sub")
+    header.SetDownVisual("d:/ymir work/ui/public/large_button_03.sub")
+    header.SetText(ARROW_DOWN + title)
+    header.SetPosition(0, 0)
+    header.Show()
+    self.InsertChild("header_" + title, header)
+
+    content = ui.Window()
+    content.SetParent(container)
+    content.SetPosition(0, 25)
+    content.SetSize(container.GetWidth(), contentHeight)
+    content.Show()
+    self.InsertChild("content_" + title, content)
+
+    header.SetEvent(ui.__mem_func__(self.__ToggleSection), title)
+    return content
+
+def __ToggleSection(self, title):
+    content = self.GetChild("content_" + title)
+    header = self.GetChild("header_" + title)
+
+    if content.IsShow():
+        content.Hide()
+        header.SetText(ARROW_RIGHT + title)
+    else:
+        content.Show()
+        header.SetText(ARROW_DOWN + title)
+```
+
+**Pitfalls:**
+- `SetEvent` passes `title` as an extra arg — no lambda needed
+- Children inside a hidden container are automatically hidden too, but
+  `SetParent` call order still determines z-order when re-shown
+- If the section has many children, hide/show is fast — no need to
+  recreate widgets
+- Track collapsed state with a dict if you need to resize the parent
+  window dynamically — initialize it in `Initialize()`:
+  ```python
+  self.sectionStates = {}  # {"Performance": True, "Interface": False}
+  ```
+
+### 7.2 Two-panel layout (navigation + content)
+
+Left navigation list with clickable items, right content panel that
+swaps content based on selection. Used for settings, shop categories,
+help systems.
+
+```python
+NAV_WIDTH = 120
+CONTENT_X = NAV_WIDTH + 5
+
+def __LoadDialog(self):
+    # ... board setup omitted ...
+
+    # Left navigation panel
+    navPanel = ui.Window()
+    navPanel.SetParent(self.board)
+    navPanel.SetPosition(10, 35)
+    navPanel.SetSize(NAV_WIDTH, self.board.GetHeight() - 45)
+    navPanel.Show()
+    self.InsertChild("navPanel", navPanel)
+
+    # Right content panel
+    contentPanel = ui.Window()
+    contentPanel.SetParent(self.board)
+    contentPanel.SetPosition(CONTENT_X + 10, 35)
+    contentPanel.SetSize(
+        self.board.GetWidth() - CONTENT_X - 20,
+        self.board.GetHeight() - 45,
+    )
+    contentPanel.Show()
+    self.InsertChild("contentPanel", contentPanel)
+
+    # Navigation items (radio buttons for mutual exclusion)
+    self.navButtons = []
+    self.navKeys = []
+    self.contentPages = {}
+    self.radioGroup = None
+
+def AddNavItem(self, key, label):
+    idx = len(self.navButtons)
+    navPanel = self.GetChild("navPanel")
+
+    btn = ui.RadioButton()
+    btn.SetParent(navPanel)
+    btn.SetUpVisual("d:/ymir work/ui/public/large_button_01.sub")
+    btn.SetOverVisual("d:/ymir work/ui/public/large_button_02.sub")
+    btn.SetDownVisual("d:/ymir work/ui/public/large_button_03.sub")
+    btn.SetText(label)
+    btn.SetPosition(0, idx * 28)
+    btn.Show()
+    self.InsertChild("nav_" + key, btn)
+    self.navButtons.append(btn)
+    self.navKeys.append(key)
+
+    contentPanel = self.GetChild("contentPanel")
+    page = ui.Window()
+    page.SetParent(contentPanel)
+    page.SetPosition(0, 0)
+    page.SetSize(contentPanel.GetWidth(), contentPanel.GetHeight())
+    page.Hide()
+    self.InsertChild("page_" + key, page)
+    self.contentPages[key] = page
+
+    return page
+
+def BuildNavigation(self):
+    from _weakref import proxy
+    ref = proxy(self)
+
+    groupData = []
+    for idx, key in enumerate(self.navKeys):
+        groupData.append((
+            self.navButtons[idx],
+            lambda k=key, r=ref: r.__SelectPage(k),
+            lambda k=key: None,
+        ))
+    self.radioGroup = ui.RadioButtonGroup.Create(groupData)
+
+def __SelectPage(self, key):
+    for k, page in self.contentPages.items():
+        if k == key:
+            page.Show()
+        else:
+            page.Hide()
+```
+
+**Pitfalls:**
+- The select lambda uses `proxy(self)` to avoid a circular reference leak.
+  Without the proxy, the lambda captures `self` strongly, the radio group
+  holds the lambda, and the dialog holds the radio group — a leak cycle.
+  The unselect lambda (`lambda k=key: None`) is safe since it has no `self`.
+- `self.navKeys` maintains insertion order — Python 2 dicts don't guarantee
+  key order, so iterating `self.contentPages.keys()` could scramble the
+  button-to-page mapping
+- `RadioButtonGroup.Create` auto-selects the first button internally —
+  no manual `Down()` or `__SelectPage()` call needed after `Create`
+- Content pages must be sized to match `contentPanel` — children outside
+  parent bounds won't receive mouse events (picking rule)
+- Call `BuildNavigation()` after all `AddNavItem()` calls, not during
+- Each page is a `ui.Window` container — add widgets to it as children
+- Initialize `self.navButtons` as `[]`, `self.navKeys` as `[]`,
+  `self.contentPages` as `{}`, and `self.radioGroup` as `None` in
+  `Initialize()` for proper cleanup
+
+### 7.3 Checkbox group
+
+A labeled group of toggle buttons that act as independent checkboxes.
+Each button has on/off state. Read state programmatically.
+
+```python
+def __CreateCheckboxGroup(self, parent, groupName, labels, yPos):
+    ROW_HEIGHT = 25
+    COL_WIDTH = 100
+
+    groupWnd = ui.Window()
+    groupWnd.SetParent(parent)
+    groupWnd.SetPosition(0, yPos)
+    rows = (len(labels) + 3) // 4  # 4 per row
+    groupWnd.SetSize(parent.GetWidth(), ROW_HEIGHT * rows)
+    groupWnd.Show()
+    self.InsertChild("group_" + groupName, groupWnd)
+
+    if not hasattr(self, "checkboxes"):
+        self.checkboxes = {}
+    self.checkboxes[groupName] = []
+
+    for idx, label in enumerate(labels):
+        col = idx % 4
+        row = idx // 4
+
+        btn = ui.ToggleButton()
+        btn.SetParent(groupWnd)
+        btn.SetUpVisual("d:/ymir work/ui/game/myshop_deco/select_btn_01.sub")
+        btn.SetOverVisual("d:/ymir work/ui/game/myshop_deco/select_btn_02.sub")
+        btn.SetDownVisual("d:/ymir work/ui/game/myshop_deco/select_btn_03.sub")
+        btn.SetText(label)
+        btn.SetPosition(col * COL_WIDTH, row * ROW_HEIGHT)
+        btn.SetToggleUpEvent(ui.__mem_func__(self.__OnCheckboxChanged), groupName, idx)
+        btn.SetToggleDownEvent(ui.__mem_func__(self.__OnCheckboxChanged), groupName, idx)
+        btn.Show()
+        self.InsertChild("chk_{}_{}".format(groupName, idx), btn)
+        self.checkboxes[groupName].append(btn)
+
+    return groupWnd
+
+def __OnCheckboxChanged(self, groupName, idx):
+    pass  # override or extend — state is in btn.IsDown()
+
+def GetCheckboxStates(self, groupName):
+    return [btn.IsDown() for btn in self.checkboxes.get(groupName, [])]
+```
+
+**Pitfalls:**
+- `SetToggleUpEvent` and `SetToggleDownEvent` both accept extra args —
+  no lambda needed, args go through `ui.__mem_func__` cleanly
+- `IsDown()` returns the current toggle state — `True` = checked
+- `Down()` forces checked state, `SetUp()` forces unchecked — use these
+  to set initial state programmatically
+- Initialize `self.checkboxes` in `Initialize()` as `{}` for proper cleanup
+
+### 7.4 Search-filtered list
+
+An edit line input above a `ListBoxEx` that filters items on every
+keystroke. Uses the `OnIMEUpdate` monkey-patch pattern from the codebase.
+
+```python
+def __CreateFilteredList(self, parent, yPos):
+    # Search input
+    searchBar = ui.SlotBar()
+    searchBar.SetParent(parent)
+    searchBar.SetPosition(10, yPos)
+    searchBar.SetSize(parent.GetWidth() - 20, 18)
+    searchBar.Show()
+    self.InsertChild("searchBar", searchBar)
+
+    searchEdit = ui.EditLine()
+    searchEdit.SetParent(searchBar)
+    searchEdit.SetPosition(4, 2)
+    searchEdit.SetSize(searchBar.GetWidth() - 8, 18)
+    searchEdit.SetMax(20)
+    searchEdit.Show()
+    self.InsertChild("searchEdit", searchEdit)
+    self.searchEdit = searchEdit
+
+    # Hook text changes — MUST call original OnIMEUpdate inside handler
+    searchEdit.OnIMEUpdate = ui.__mem_func__(self.__OnSearchUpdate)
+
+    # Filtered list
+    listBox = ui.ListBoxEx()
+    listBox.SetParent(parent)
+    listBox.SetPosition(10, yPos + 25)
+    listBox.SetSize(parent.GetWidth() - 30, parent.GetHeight() - yPos - 35)
+    listBox.SetItemStep(20)
+    listBox.SetItemSize(parent.GetWidth() - 30, 20)
+    listBox.SetViewItemCount(
+        (parent.GetHeight() - yPos - 35) // 20
+    )
+    listBox.Show()
+    self.InsertChild("filteredList", listBox)
+    self.filteredList = listBox
+
+    scrollBar = ui.ScrollBar()
+    scrollBar.SetParent(parent)
+    scrollBar.SetPosition(parent.GetWidth() - 18, yPos + 25)
+    scrollBar.SetScrollBarSize(parent.GetHeight() - yPos - 35)
+    scrollBar.Show()
+    self.InsertChild("filterScroll", scrollBar)
+    listBox.SetScrollBar(scrollBar)
+
+    self.allItems = []  # [(key, displayText, itemWidget), ...]
+
+def AddFilterItem(self, key, displayText):
+    item = ui.ListBoxEx.Item()
+    item.SetParent(self.filteredList)
+
+    textLine = ui.TextLine()
+    textLine.SetParent(item)
+    textLine.SetPosition(5, 0)
+    textLine.SetText(displayText)
+    textLine.Show()
+
+    item.Show()
+    self.allItems.append((key, displayText, item))
+    self.filteredList.AppendItem(item)
+
+def __OnSearchUpdate(self):
+    # CRITICAL: call original to update displayed text in the edit line
+    ui.EditLine.OnIMEUpdate(self.searchEdit)
+
+    query = self.searchEdit.GetText().lower()
+    self.filteredList.RemoveAllItems()
+
+    for key, displayText, item in self.allItems:
+        if not query or query in displayText.lower():
+            self.filteredList.AppendItem(item)
+
+def ClearFilter(self):
+    self.searchEdit.SetText("")
+    self.filteredList.RemoveAllItems()
+    for key, displayText, item in self.allItems:
+        self.filteredList.AppendItem(item)
+```
+
+**Pitfalls:**
+- **CRITICAL:** The `OnIMEUpdate` handler MUST call
+  `ui.EditLine.OnIMEUpdate(self.searchEdit)` — without it, the edit line
+  won't visually update as the user types. This is the #1 bug with this
+  pattern.
+- The monkey-patch `searchEdit.OnIMEUpdate = ui.__mem_func__(self.__handler)`
+  uses `ui.__mem_func__` to prevent circular reference leaks. Do not use
+  a direct assignment like `searchEdit.OnIMEUpdate = self.__handler`.
+- `OnKillFocus` calls `SetText()` but does NOT trigger `OnIMEUpdate` — if
+  you need to react to focus-loss text changes, also hook `OnKillFocus`.
+- `RemoveAllItems()` hides all items but keeps them alive. The items in
+  `self.allItems` are reused across filter operations — no recreation.
+- Initialize `self.allItems` as `[]`, `self.searchEdit` as `None`, and
+  `self.filteredList` as `None` in `Initialize()` for proper cleanup.
+- **Scrollbar limitation:** After filtering, the scrollbar's visual size
+  (middle bar proportion) is not auto-recalculated by `ListBoxEx`. The
+  scroll position resets to 0 on `RemoveAllItems()`, which is correct,
+  but the bar size may not match the filtered item count. For most UIs
+  this is acceptable — the scrollbar still works, just the proportional
+  indicator may be inaccurate until the user scrolls.
