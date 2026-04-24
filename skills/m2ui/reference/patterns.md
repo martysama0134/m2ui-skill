@@ -1788,3 +1788,348 @@ panel.Open(title=localeInfo.MOB_INFO_TITLE)
 - For very long content that exceeds screen height, consider combining
   with Section 7.10 (scrollable container) instead of growing the panel
   indefinitely.
+
+### 7.12 Mouse attach / drag-to-slot
+
+Items are dragged between windows using `mouseModule.mouseController`.
+The controller holds one attached object at a time (item, money, or
+skill) and renders it following the cursor. Dropping into a target
+slot triggers the target window's `OnSelectEmptySlot` or
+`OnSelectItemSlot` event.
+
+**Receiving a dragged item (target window):**
+
+```python
+import mouseModule
+import player
+
+def OnSelectEmptySlot(self, selectedSlotPos):
+    if not mouseModule.mouseController.isAttached():
+        return
+
+    attachedSlotType = mouseModule.mouseController.GetAttachedType()
+    attachedSlotPos = mouseModule.mouseController.GetAttachedSlotNumber()
+    attachedInvenType = player.SlotTypeToInvenType(attachedSlotType)
+    mouseModule.mouseController.DeattachObject()
+
+    if attachedSlotType != player.SLOT_TYPE_INVENTORY:
+        return
+    if attachedInvenType != player.INVENTORY:
+        return
+
+    # Validate item before accepting
+    itemVnum = player.GetItemIndex(attachedSlotPos)
+    item.SelectItem(itemVnum)
+    if item.IsAntiFlag(item.ANTIFLAG_GIVE):
+        return
+
+    # Accept the item
+    self.__AddItem(attachedInvenType, attachedSlotPos, selectedSlotPos)
+
+def OnSelectItemSlot(self, selectedSlotPos):
+    # Click on an occupied slot — remove item or swap
+    mouseModule.mouseController.DeattachObject()
+    self.__RemoveItem(selectedSlotPos)
+```
+
+**Initiating a drag (source window):**
+
+```python
+def SelectItemSlot(self, selectedSlotPos):
+    if mouseModule.mouseController.isAttached():
+        return
+
+    selectedItemVNum = shop.GetItemID(selectedSlotPos)
+    itemCount = shop.GetItemCount(selectedSlotPos)
+
+    mouseModule.mouseController.AttachObject(
+        self, player.SLOT_TYPE_SHOP,
+        selectedSlotPos, selectedItemVNum, itemCount,
+    )
+    snd.PlaySound("sound/ui/pick.wav")
+```
+
+**Drag with callback (shop buy pattern):**
+
+```python
+def SelectItemSlot(self, selectedSlotPos):
+    selectedItemID = shop.GetItemID(selectedSlotPos)
+    itemCount = shop.GetItemCount(selectedSlotPos)
+
+    mouseModule.mouseController.AttachObject(
+        self, player.SLOT_TYPE_SHOP,
+        selectedSlotPos, selectedItemID, itemCount,
+    )
+    mouseModule.mouseController.SetCallBack(
+        "INVENTORY", ui.__mem_func__(self.DropToInventory),
+    )
+    snd.PlaySound("sound/ui/pick.wav")
+
+def DropToInventory(self):
+    attachedSlotPos = mouseModule.mouseController.GetAttachedSlotNumber()
+    self.AskBuyItem(attachedSlotPos)
+```
+
+**Right-click on slot (UnselectItemSlot):**
+
+```python
+# Setup — right-click on occupied slot triggers UnselectItemSlot
+self.itemSlot.SetUnselectItemSlotEvent(ui.__mem_func__(self.OnRightClickSlot))
+
+# Or via SAFE_SetButtonEvent:
+self.itemSlot.SAFE_SetButtonEvent("RIGHT", "EXIST", self.OnRightClickSlot)
+
+def OnRightClickSlot(self, selectedSlotPos):
+    # Direct action on right-click (no context menu in Metin2)
+    net.SendShopBuyPacket(selectedSlotPos)
+```
+
+**Wiring slot events:**
+
+```python
+self.itemSlot.SetSelectEmptySlotEvent(ui.__mem_func__(self.OnSelectEmptySlot))
+self.itemSlot.SetSelectItemSlotEvent(ui.__mem_func__(self.OnSelectItemSlot))
+self.itemSlot.SetUnselectItemSlotEvent(ui.__mem_func__(self.OnRightClickSlot))
+self.itemSlot.SetUseSlotEvent(ui.__mem_func__(self.OnUseSlot))
+self.itemSlot.SetOverInItemEvent(ui.__mem_func__(self.OnOverInItem))
+self.itemSlot.SetOverOutItemEvent(ui.__mem_func__(self.OnOverOutItem))
+```
+
+**Pitfalls:**
+- Always call `DeattachObject()` as early as possible in the handler —
+  before validation. Otherwise, if you return early, the item stays
+  glued to the cursor.
+- `GetAttachedType()` returns slot type constants like
+  `player.SLOT_TYPE_INVENTORY`, `player.SLOT_TYPE_SHOP`,
+  `player.SLOT_TYPE_DRAGON_SOUL_INVENTORY`. Check the type before
+  accepting — don't let dragon soul items go into regular slots.
+- `SetCallBack("INVENTORY", handler)` fires when the attached item is
+  dropped into an inventory window. The handler receives no arguments —
+  use `GetAttachedSlotNumber()` inside the callback to find which slot.
+- There is no context menu widget in Metin2. "Right-click" on slots is
+  handled by `SetUnselectItemSlotEvent` — it fires on right-click of
+  an occupied slot. Wire it to a direct action (buy, use, remove).
+- `isAttached()` must be checked before `GetAttachedType()` — calling
+  getters without an attachment can return stale values.
+- Validate `item.IsAntiFlag(item.ANTIFLAG_GIVE)` and
+  `item.IsAntiFlag(item.ANTIFLAG_SELL)` before accepting items for
+  trade/shop operations.
+
+### 7.13 Tooltip on slot hover
+
+Show item or skill tooltips when hovering over slots. The tooltip
+widget is created externally (usually by interfacemodule.py) and
+passed to the window via `SetItemToolTip()`.
+
+```python
+# --- Setup (called from interfacemodule.py) ---
+
+def SetItemToolTip(self, tooltip):
+    self.tooltipItem = tooltip
+
+def SetSkillToolTip(self, tooltip):
+    self.tooltipSkill = tooltip
+
+# --- Wire events in __LoadWindow or __LoadDialog ---
+
+self.itemSlot.SetOverInItemEvent(ui.__mem_func__(self.OnOverInItem))
+self.itemSlot.SetOverOutItemEvent(ui.__mem_func__(self.OnOverOutItem))
+
+# --- Event handlers ---
+
+def OnOverInItem(self, slotIndex):
+    if not self.tooltipItem:
+        return
+
+    self.tooltipItem.ClearToolTip()
+    self.tooltipItem.SetInventoryItem(slotIndex)
+
+def OnOverOutItem(self):
+    if self.tooltipItem:
+        self.tooltipItem.HideToolTip()
+```
+
+**Tooltip with custom data (not inventory-bound):**
+
+```python
+def OnOverInItem(self, slotIndex):
+    if not self.tooltipItem:
+        return
+
+    itemVnum = self.__GetItemVnum(slotIndex)
+    if not itemVnum:
+        return
+
+    self.tooltipItem.ClearToolTip()
+    self.tooltipItem.AddItemData(itemVnum, [0, 0, 0], [(0, 0)] * 7)
+    self.tooltipItem.ShowToolTip()
+```
+
+**Fixed-position tooltip (embedded in window):**
+
+```python
+# Create tooltip as child of this window, not floating
+toolTip = uiToolTip.ItemToolTip()
+toolTip.SetParent(self)
+toolTip.SetPosition(15, 38)
+toolTip.SetFollow(False)
+toolTip.Show()
+self.toolTip = toolTip
+```
+
+**Pitfalls:**
+- Always check `if not self.tooltipItem: return` — the tooltip is set
+  externally and may be `None` if interfacemodule didn't bind it.
+- `ClearToolTip()` must be called before `SetInventoryItem()` or
+  `AddItemData()` — otherwise tooltip content stacks.
+- `HideToolTip()` not `Hide()` — the tooltip class has its own
+  hide method that handles cleanup.
+- `SetFollow(False)` makes the tooltip stay at a fixed position instead
+  of following the mouse. Use for embedded previews (like uirefine.py).
+- For slot windows that display items not in player inventory (shop,
+  quest rewards), use `AddItemData(vnum, metinSlots, attrSlots)`
+  instead of `SetInventoryItem(slotIndex)`.
+- Initialize `self.tooltipItem` as `None` in `Initialize()`.
+
+### 7.14 Slot overlay effects
+
+Three mechanisms for visual feedback on grid slots: activation glow,
+cover button overlay, and cooldown arc.
+
+**Activation glow (colored border highlight):**
+
+```python
+# Green glow on active auto-potion slot
+self.itemSlot.ActivateSlot(slotIndex, 36.0/255.0, 222.0/255.0, 3.0/255.0, 1.0)
+
+# Default white glow
+self.itemSlot.ActivateSlot(slotIndex)
+
+# Remove glow
+self.itemSlot.DeactivateSlot(slotIndex)
+
+# Check state
+if self.itemSlot.IsActivatedSlot(slotIndex):
+    self.itemSlot.DeactivateSlot(slotIndex)
+```
+
+**Cover button (gray overlay / lock icon):**
+
+```python
+# Add cover button images to a slot (up/over/down/disable + visibility flags)
+self.itemSlot.SetCoverButton(
+    slotIndex,
+    "d:/ymir work/ui/game/quest/slot_button_01.sub",  # up
+    "d:/ymir work/ui/game/quest/slot_button_01.sub",  # over
+    "d:/ymir work/ui/game/quest/slot_button_01.sub",  # down
+    "d:/ymir work/ui/game/belt_inventory/slot_disabled.tga",  # disable
+    False,  # visible initially
+    False,  # always render
+)
+
+# Enable/disable based on state
+if player.IsAvailableBeltInventoryCell(slotIndex):
+    self.itemSlot.EnableCoverButton(slotIndex)
+else:
+    self.itemSlot.DisableCoverButton(slotIndex)
+```
+
+**Cooldown arc overlay:**
+
+```python
+# Set cooldown on a slot (total duration, elapsed time)
+self.itemSlot.SetSlotCoolTime(slotIndex, coolTime, elapsedTime)
+
+# Example: skill cooldown
+if player.IsSkillCoolTime(slotIndex):
+    (coolTime, elapsedTime) = player.GetSkillCoolTime(slotIndex)
+    self.itemSlot.SetSlotCoolTime(slotIndex, coolTime, elapsedTime)
+```
+
+**Toggle slot (alternate highlight):**
+
+```python
+# Toggle highlight state (like checkbox on/off)
+self.itemSlot.SetToggleSlot(slotIndex)
+```
+
+**Slot count overlay:**
+
+```python
+# Show stack count number on slot
+self.itemSlot.SetSlotCount(slotIndex, count)
+
+# With grade display
+self.itemSlot.SetSlotCountNew(slotIndex, grade, count)
+```
+
+**Pitfalls:**
+- `ActivateSlot` RGB values are 0.0-1.0 floats, not 0-255 ints.
+  Divide by 255.0 when converting from color codes.
+- `SetCoverButton` must be called before `EnableCoverButton` /
+  `DisableCoverButton` — enabling without prior setup does nothing.
+- `SetSlotCoolTime` renders a darkened arc overlay that animates from
+  fully covered to fully revealed. The C++ engine handles the animation
+  internally — no OnUpdate needed.
+- Call `RefreshSlot()` after batch-updating slots to force visual refresh.
+- `SetAlwaysRenderCoverButton(slotIndex, True)` forces the cover button
+  to render even when the slot is empty.
+- These are all wndMgr-level operations — they work on both `SlotWindow`
+  and `GridSlotWindow`.
+
+### 7.15 Auto-close on distance (OnUpdate polling)
+
+Windows bound to an NPC or crafting station should auto-close when the
+player walks too far away. Polls player position every frame in
+`OnUpdate`.
+
+```python
+DISTANCE_LIMIT = 1000  # pixels — standard NPC interaction range
+
+def Open(self):
+    (self.startX, self.startY, _) = player.GetMainCharacterPosition()
+    self.SetCenterPosition()
+    self.SetTop()
+    self.Show()
+
+def Close(self):
+    self.Hide()
+
+def OnUpdate(self):
+    (x, y, z) = player.GetMainCharacterPosition()
+    if abs(x - self.startX) > DISTANCE_LIMIT or \
+       abs(y - self.startY) > DISTANCE_LIMIT:
+        self.Close()
+```
+
+**With network close packet:**
+
+```python
+def OnUpdate(self):
+    (x, y, z) = player.GetMainCharacterPosition()
+    if abs(x - self.startX) > DISTANCE_LIMIT or \
+       abs(y - self.startY) > DISTANCE_LIMIT:
+        self.__OnDistanceClose()
+
+def __OnDistanceClose(self):
+    self.Hide()
+    net.SendCraftClosePacket()
+```
+
+**Pitfalls:**
+- **CRITICAL: call `self.Hide()` BEFORE the network packet.** `OnUpdate`
+  runs every frame. If the connection is laggy and the server hasn't
+  responded yet, the window stays visible and `OnUpdate` keeps firing —
+  flooding the server with close packets every frame. `self.Hide()` first
+  ensures `OnUpdate` stops running (hidden windows don't receive updates).
+- Store `self.startX` / `self.startY` in `Open()`, not `__init__()` —
+  the player may have moved between window creation and opening.
+- Use Manhattan distance (`abs(dx) + abs(dy)`) or axis-independent
+  checks (`abs(dx) > LIMIT or abs(dy) > LIMIT`) — not Euclidean.
+  The axis-independent check is what the codebase uses.
+- `DISTANCE_LIMIT = 1000` is the standard NPC interaction range used
+  by uicube.py, uishop.py, and uiacce.py.
+- Initialize `self.startX` as `0` and `self.startY` as `0` in
+  `Initialize()`.
+- Don't add a guard flag (`self.alreadyClosed`) — `self.Hide()` already
+  prevents further `OnUpdate` calls, so no double-fire risk.
