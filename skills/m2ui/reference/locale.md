@@ -41,9 +41,41 @@ Examples:
 - In uiscript dict files: `uiScriptLocale.KEY`
 - Never hardcode user-visible strings
 
+## File Encoding
+
+The Metin2 client uses Windows code pages, not UTF-8. When writing locale files, determine the encoding from the locale directory name:
+
+| Language | Code | Encoding |
+|----------|------|----------|
+| Arabic | `ae` | Windows-1256 |
+| Brazilian | `br` | Windows-1252 |
+| Czech | `cz` | Windows-1250 |
+| German | `de` | Windows-1252 |
+| Danish | `dk` | Windows-1252 |
+| English | `en` | Windows-1252 |
+| Spanish | `es` | Windows-1252 |
+| French | `fr` | Windows-1252 |
+| Greek | `gr` | Windows-1253 |
+| Hungarian | `hu` | Windows-1250 |
+| Italian | `it` | Windows-1252 |
+| Dutch | `nl` | Windows-1252 |
+| Polish | `pl` | Windows-1250 |
+| Portuguese | `pt` | Windows-1252 |
+| Romanian | `ro` | Windows-1250 |
+| Russian | `ru` | KOI8-R |
+| Turkish | `tr` | Windows-1254 |
+
+**Rules:**
+- Check the locale directory name (e.g., `locale/de/`) to determine the correct encoding
+- If the directory name matches a known language code above, write the file in that encoding
+- If unknown, default to Windows-1252 (Western European)
+- Romanian (`ro`) uses Windows-1250 but has two accents (ș/ț with comma below) that require conversion from their Unicode cedilla variants (ş/ţ) to the correct comma-below forms — the code page only has the cedilla variants, so use those
+- Never write locale files as UTF-8 unless the project explicitly uses UTF-8 locale files
+
 ## Rules
 
 - **Append only** — never overwrite or reorder existing entries
 - **Check before adding** — read the file first, avoid duplicate keys
 - **Group new entries** — add all entries for one window together, at the end of the file
 - **No empty lines** between entries (match existing file format)
+- **Match existing encoding** — when appending, write in the same encoding as the rest of the file
