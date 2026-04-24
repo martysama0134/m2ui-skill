@@ -42,7 +42,7 @@ class MyWindow(ui.ScriptWindow):
 
         try:
             pyScrLoader = ui.PythonScriptLoader()
-            pyScrLoader.LoadScriptFile(self, "UIScript/MyWindowDialog.py")
+            pyScrLoader.LoadScriptFile(self, "uiscript/mywindowdialog.py")
         except:
             exception.Abort("MyWindow.__LoadWindow.LoadScript")
 

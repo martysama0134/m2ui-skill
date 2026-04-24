@@ -47,6 +47,10 @@ class for it, follow this checklist:
      → typically no `GetChild()` needed unless updated at runtime
    - **Containers**: windows used as viewports for dynamic content →
      need `GetChild()` for runtime population
+   - **Drag targets**: an `image` widget can serve as a drag-drop target
+     (e.g., improvement/enhancement slot). Classify based on context
+     and naming, not just widget type — if it looks like a slot area
+     where items are dropped, treat it as interactive
 
 4. **Handle empty viewport + scrollbar patterns** — if the uiscript has
    an empty `"window"` type child with a nearby `"scrollbar"`, this is
@@ -67,6 +71,17 @@ class for it, follow this checklist:
 8. **Handle path constants** — if the uiscript uses constants like
    `ROOT_PATH = "d:/ymir work/ui/game/cube/"`, note them but don't
    reproduce in the root class (they're uiscript-only).
+
+9. **LoadScriptFile path** — use full lowercase path. The pack system
+   converts all file paths to lowercase and `\\` to `/`. Example:
+   `pyScrLoader.LoadScriptFile(self, "uiscript/cuberenewalwindow.py")`
+   NOT `"UIScript/CubeRenewalWindow.py"`.
+
+10. **Uiscript properties are auto-applied** — properties like
+    `only_number`, `input_limit`, `secret_flag`, `text` on editlines
+    are handled by `PythonScriptLoader` during `LoadScriptFile`. Don't
+    duplicate them in the root class (e.g., don't call
+    `SetNumberMode()` if the uiscript already has `"only_number": 1`).
 
 ## Step 3: Apply Modifications
 
