@@ -25,6 +25,49 @@ Before making changes:
 - Note any feature flags (`app.BL_*`, `app.ENABLE_*`)
 - Note existing `Initialize()` / `__Initialize()` method and what it resets
 
+## Generating a Root Class from an Existing Uiscript
+
+When the user provides a uiscript and asks to create the root `ui*.py`
+class for it, follow this checklist:
+
+1. **Parse all named children** — extract every `"name"` value from
+   the uiscript dict tree (recursive, including nested children).
+   Use these EXACT names in `GetChild()` calls — preserve typos and
+   unconventional naming (e.g., `imporve_slot`, `impove_text_window`).
+
+2. **Identify the board type** — check if the root child is `"board"`
+   or `"board_with_titlebar"`. For `board_with_titlebar`, the close
+   event goes on the board itself (`self.board.SetCloseEvent(...)`),
+   NOT on a separate titlebar child.
+
+3. **Classify each widget** as interactive or decorative:
+   - **Interactive**: buttons, editlines, slots, grid_tables, scrollbars,
+     radio_buttons, toggle_buttons → need `GetChild()` + event wiring
+   - **Decorative**: images, expanded_images, text labels, bars, lines
+     → typically no `GetChild()` needed unless updated at runtime
+   - **Containers**: windows used as viewports for dynamic content →
+     need `GetChild()` for runtime population
+
+4. **Handle empty viewport + scrollbar patterns** — if the uiscript has
+   an empty `"window"` type child with a nearby `"scrollbar"`, this is
+   a container for dynamically-populated content (list items, cards).
+   Generate stub methods for populating it at runtime.
+
+5. **Generate Initialize()** with a `None` entry for every interactive
+   widget and dynamic data structure.
+
+6. **Wire events** for all interactive widgets:
+   - Buttons → `SetEvent(ui.__mem_func__(self.OnXxx))`
+   - Editlines → hook `OnIMEUpdate` if text changes matter
+   - Scrollbars → `SetScrollEvent(ui.__mem_func__(self.__OnScroll))`
+   - Slots/grid_tables → `SetSelectEmptySlotEvent`, `SetOverInItemEvent`, etc.
+
+7. **Generate stub methods** for every event handler with `pass` body.
+
+8. **Handle path constants** — if the uiscript uses constants like
+   `ROOT_PATH = "d:/ymir work/ui/game/cube/"`, note them but don't
+   reproduce in the root class (they're uiscript-only).
+
 ## Step 3: Apply Modifications
 
 Based on user's request:

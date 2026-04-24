@@ -2519,3 +2519,103 @@ if not text or not text.isdigit():
     return
 value = min(int(text), 2000000000)
 ```
+
+---
+
+## 11. 9-Slice Tiled Border
+
+Scalable bordered panel built from 9 image tiles: 4 corners, 4 edges,
+and 1 center fill. Used by official uiscripts (e.g., `cuberenewalwindow.py`)
+for custom-styled panels that aren't standard `Board` or `ThinBoard`.
+
+### Uiscript approach
+
+```python
+PANEL_WIDTH = 316
+PANEL_HEIGHT = 252
+PATTERN_PATH = "d:/ymir work/ui/pattern/"
+PATTERN_X_COUNT = (PANEL_WIDTH - 32) // 16
+PATTERN_Y_COUNT = (PANEL_HEIGHT - 32) // 16
+
+# Container window
+{
+    "name": "custom_panel",
+    "type": "window",
+    "style": ("attach",),
+    "x": 10, "y": 32,
+    "width": PANEL_WIDTH,
+    "height": PANEL_HEIGHT,
+    "children": (
+        # 4 corners (16x16 each, fixed position)
+        {"name": "corner_lt", "type": "image", "x": 0, "y": 0,
+         "image": PATTERN_PATH + "border_A_left_top.tga", "style": ("not_pick",)},
+        {"name": "corner_rt", "type": "image", "x": PANEL_WIDTH - 16, "y": 0,
+         "image": PATTERN_PATH + "border_A_right_top.tga", "style": ("not_pick",)},
+        {"name": "corner_lb", "type": "image", "x": 0, "y": PANEL_HEIGHT - 16,
+         "image": PATTERN_PATH + "border_A_left_bottom.tga", "style": ("not_pick",)},
+        {"name": "corner_rb", "type": "image", "x": PANEL_WIDTH - 16, "y": PANEL_HEIGHT - 16,
+         "image": PATTERN_PATH + "border_A_right_bottom.tga", "style": ("not_pick",)},
+
+        # 4 edges (expanded_image, tiled via rect)
+        {"name": "edge_top", "type": "expanded_image", "x": 16, "y": 0,
+         "image": PATTERN_PATH + "border_A_top.tga",
+         "rect": (0.0, 0.0, PATTERN_X_COUNT, 0), "style": ("not_pick",)},
+        {"name": "edge_bottom", "type": "expanded_image", "x": 16, "y": PANEL_HEIGHT - 16,
+         "image": PATTERN_PATH + "border_A_bottom.tga",
+         "rect": (0.0, 0.0, PATTERN_X_COUNT, 0), "style": ("not_pick",)},
+        {"name": "edge_left", "type": "expanded_image", "x": 0, "y": 16,
+         "image": PATTERN_PATH + "border_A_left.tga",
+         "rect": (0.0, 0.0, 0, PATTERN_Y_COUNT), "style": ("not_pick",)},
+        {"name": "edge_right", "type": "expanded_image", "x": PANEL_WIDTH - 16, "y": 16,
+         "image": PATTERN_PATH + "border_A_right.tga",
+         "rect": (0.0, 0.0, 0, PATTERN_Y_COUNT), "style": ("not_pick",)},
+
+        # Center fill (expanded_image, tiled both axes)
+        {"name": "center_fill", "type": "expanded_image", "x": 16, "y": 16,
+         "image": PATTERN_PATH + "border_A_center.tga",
+         "rect": (0.0, 0.0, PATTERN_X_COUNT, PATTERN_Y_COUNT), "style": ("not_pick",)},
+
+        # Content goes here — placed after border so it renders on top
+        {
+            "name": "content_area",
+            "type": "window",
+            "x": 3, "y": 3,
+            "width": PANEL_WIDTH - 6,
+            "height": PANEL_HEIGHT - 10,
+        },
+    ),
+},
+```
+
+### How it works
+
+- Corner tiles are 16x16 `image` widgets at fixed positions
+- Edge tiles are `expanded_image` with `rect` to tile the base image:
+  - Horizontal edges: `"rect": (0.0, 0.0, X_COUNT, 0)` — tiles X_COUNT
+    times horizontally
+  - Vertical edges: `"rect": (0.0, 0.0, 0, Y_COUNT)` — tiles Y_COUNT
+    times vertically
+- Center fill tiles both axes: `"rect": (0.0, 0.0, X_COUNT, Y_COUNT)`
+- `X_COUNT = (width - 32) // 16` — subtract 2 corners (16px each),
+  divide by tile size
+- Content window sits on top of the border (z-order: later = on top)
+
+### Available border styles
+
+```
+border_A_*.tga  — standard dark border (used in cube, dungeon info)
+border_B_*.tga  — alternate style (if available in assets)
+```
+
+Each style needs 9 files: `left_top`, `right_top`, `left_bottom`,
+`right_bottom`, `top`, `bottom`, `left`, `right`, `center`.
+
+### Pitfalls
+
+- All 9 border elements should have `"not_pick"` flag — they're decorative
+  and shouldn't intercept mouse events
+- The `rect` property on `expanded_image` uses tile counts (integers),
+  not pixel sizes. Each count = one repetition of the base tile.
+- Content window must be placed AFTER the border elements in `children`
+  for correct z-order (content renders on top of border)
+- Use `//` for the tile count calculation — `/` returns float in Python 3
