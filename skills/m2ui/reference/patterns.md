@@ -683,3 +683,76 @@ Destroy()               # decorated with @ui.WindowDestroy
 __del__()
   -> ScriptWindow.__del__(self)
 ```
+
+---
+
+## 6. Clip Mask (Scrollable Content Clipping)
+
+Gated behind `app.__BL_CLIP_MASK__`. Clips child widget rendering to parent
+bounds — essential for scrollable lists where items should disappear when
+scrolling out of view instead of overflowing visually.
+
+### 6.1 Basic usage — clip children to a container
+
+```python
+if app.__BL_CLIP_MASK__:
+    childWidget.SetClippingMaskWindow(parentContainer)
+```
+
+Every child that can scroll out of the parent's visible area needs this call.
+Apply it right after creating the child and setting its parent.
+
+### 6.2 Explicit rect clipping
+
+```python
+if app.__BL_CLIP_MASK__:
+    widget.SetClippingMaskRect(left, top, right, bottom)
+```
+
+Use when clipping to a specific rectangle rather than a parent window's bounds.
+
+### 6.3 Scrollable list pattern (ListBoxEx with clip mask)
+
+With clip mask enabled, `ListBoxEx` uses pixel-based smooth scrolling instead
+of item-index-based jumping:
+
+```python
+# In AppendItem — attach clip mask to each new item
+if app.__BL_CLIP_MASK__:
+    newItem.SetClippingMaskWindow(self)
+
+# In SetBasePos — pixel-based scroll positioning
+if app.__BL_CLIP_MASK__:
+    self.basePos = basePos
+    fromPos = self.basePos
+    toPos = self.basePos + self.GetHeight()
+    curPos = 0
+    for item in self.itemList:
+        if curPos + self.itemStep < fromPos or curPos > toPos:
+            item.Hide()
+        else:
+            item.Show()
+        item.SetPosition(0, curPos - fromPos)
+        curPos += self.itemStep
+```
+
+### 6.4 Custom scrollable container pattern (uilootingsystem style)
+
+For custom scrollable areas outside of ListBoxEx, apply clip mask to each
+child that belongs to a scrollable parent:
+
+```python
+if app.__BL_CLIP_MASK__:
+    self.title_img.SetClippingMaskWindow(self.parent)
+    self.state_btn.SetClippingMaskWindow(self.parent)
+    self.desc_title.SetClippingMaskWindow(parent)
+    self.range_img.SetClippingMaskWindow(parent)
+```
+
+### 6.5 Rules
+
+- Always guard with `if app.__BL_CLIP_MASK__:` — not all builds have it
+- Apply to EVERY child widget that can scroll out of view
+- Call `SetClippingMaskWindow` after `SetParent` and before `Show`
+- The clipping window must be the scrollable container, not the root window
+- Without clip mask, fall back to Hide/Show based on item index (old behavior)

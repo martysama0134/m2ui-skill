@@ -857,6 +857,8 @@ Extended listbox that holds arbitrary widget items (not just text).
 - `SelectIndex(index)` -- select by index
 - `GetSelectedItem()` -- get selected item object
 
+**Clip mask support:** When `app.__BL_CLIP_MASK__` is enabled, `ListBoxEx` uses pixel-based smooth scrolling and automatically calls `SetClippingMaskWindow(self)` on each appended item. See `reference/patterns.md` Section 6 for details.
+
 **Notes:** Items must extend `ListBoxEx.Item` (which extends `Window`). Each item is a full widget that can contain its own children.
 
 ---
