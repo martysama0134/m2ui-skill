@@ -2619,3 +2619,109 @@ Each style needs 9 files: `left_top`, `right_top`, `left_bottom`,
 - Content window must be placed AFTER the border elements in `children`
   for correct z-order (content renders on top of border)
 - Use `//` for the tile count calculation — `/` returns float in Python 3
+
+---
+
+## 12. Full Window Integration Chain
+
+Complete flow for adding a new window to the game: keybind in game.py →
+toggle in interfacemodule.py → window creation → cleanup. Copy-paste
+template for the full integration.
+
+### Step 1: Create the window class
+
+Follow Style 1 (patterns.md §1) or Style 2 (§2). The window must have
+`Open()`, `Close()`, `Destroy()`, `SetItemToolTip()` at minimum.
+
+### Step 2: Register in interfacemodule.py
+
+```python
+# --- At top of file (guarded by feature flag if applicable) ---
+if app.ENABLE_MY_FEATURE:
+    import uiMyFeature
+
+# --- In __init__ or MakeInterface (initialize to None) ---
+if app.ENABLE_MY_FEATURE:
+    self.wndMyFeature = None
+
+# --- In MakeInterface (create instance, after tooltips are created) ---
+if app.ENABLE_MY_FEATURE:
+    self.wndMyFeature = uiMyFeature.MyFeatureWindow()
+    self.wndMyFeature.SetItemToolTip(self.tooltipItem)
+    # self.wndMyFeature.SetSkillToolTip(self.tooltipSkill)  # if needed
+    # self.wndMyFeature.BindInterface(self)  # if window calls back into interface
+
+# --- Toggle method ---
+if app.ENABLE_MY_FEATURE:
+    def ToggleMyFeatureWindow(self):
+        if not self.wndMyFeature.IsShow():
+            self.wndMyFeature.Open()
+        else:
+            self.wndMyFeature.Close()
+
+# --- In Close() cleanup ---
+if app.ENABLE_MY_FEATURE:
+    if self.wndMyFeature:
+        self.wndMyFeature.Destroy()
+        self.wndMyFeature = None
+
+# --- In __HideWindows (add to hideWindows list) ---
+if app.ENABLE_MY_FEATURE:
+    if self.wndMyFeature:
+        hideWindows += self.wndMyFeature,
+
+# --- In HideAllWindows / OnCloseQuestionDialog ---
+if app.ENABLE_MY_FEATURE:
+    if self.wndMyFeature:
+        self.wndMyFeature.Hide()
+```
+
+### Step 3: Add keybind in game.py
+
+```python
+# In GameClass.__BuildKeyDict (around line 350):
+if app.ENABLE_MY_FEATURE:
+    onPressKeyDict[app.DIK_K] = lambda: self.interface.ToggleMyFeatureWindow()
+```
+
+**Key constant reference** (from `app` module):
+```
+DIK_Q through DIK_P    — top row
+DIK_A through DIK_L    — middle row
+DIK_Z through DIK_M    — bottom row
+DIK_F1 through DIK_F12 — function keys
+DIK_1 through DIK_0    — number row (usually for quick slots)
+```
+
+Common free keys: `DIK_K`, `DIK_U`, `DIK_Y`, `DIK_P` (check existing
+bindings first to avoid conflicts).
+
+### Step 4: Optional taskbar button
+
+If the window needs a taskbar button instead of (or in addition to) a
+keybind, add a button to the taskbar uiscript and wire it:
+
+```python
+# In uitaskbar.py or interfacemodule.py setup:
+self.myFeatureButton = self.GetChild("MyFeatureButton")
+self.myFeatureButton.SetEvent(ui.__mem_func__(self.ToggleMyFeatureWindow))
+```
+
+### Pitfalls
+
+- **Feature flag guard everything** — wrap all integration code in
+  `if app.ENABLE_MY_FEATURE:` so the window can be compiled out.
+  If no feature flag, omit the guards.
+- **Creation order matters** — create the window AFTER tooltips exist
+  in MakeInterface, otherwise `SetItemToolTip()` receives `None`.
+- **Destroy in cleanup, not Close** — `Close()` just hides.
+  `Destroy()` releases resources. Call `Destroy()` in
+  interfacemodule's `Close()` method.
+- **hideWindows tuple append** — uses `hideWindows += self.wndX,`
+  (trailing comma = single-element tuple). Don't use `append()`.
+- **game.py lambdas are safe** — they capture `self.interface` (the
+  game object), not the window itself. No leak risk.
+- **Check for key conflicts** — read existing `onPressKeyDict` entries
+  before assigning. Common keys are already taken:
+  `C` (character), `V` (skill), `I` (inventory), `O` (dragon soul),
+  `M` (minimap), `L` (chat log), `G` (guild), `N` (quest).

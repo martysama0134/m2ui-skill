@@ -4,8 +4,9 @@ description: >
   Generate and modify Metin2 client UI code from screenshots, natural language,
   or existing scripts. Creates uiscript dicts, root ui*.py classes, and locale entries.
   Use when: user says "/m2ui", "create UI", "make a window", "modify UI",
-  "add button to", "screenshot to UI". Supports three modes: screenshot (from image),
-  talk (from description), script (modify existing).
+  "add button to", "screenshot to UI", "check UI for bugs", "diagnose".
+  Supports four modes: screenshot (from image), talk (from description),
+  script (modify existing), diagnose (audit for anti-patterns).
 ---
 
 # /m2ui — Metin2 UI Generator
@@ -14,11 +15,12 @@ description: >
 
 Detect mode from user input using this priority:
 
-1. **Explicit keyword**: args start with `screenshot`, `talk`, or `script` → use that mode
+1. **Explicit keyword**: args start with `screenshot`, `talk`, `script`, or `diagnose` → use that mode
 2. **Image attached**: user message contains an image/screenshot → screenshot mode
-3. **File reference**: args reference a `.py` file in `uiscript/` or `root/` (e.g., `uimovechannel.py`, `MoveChannelDialog.py`) → script mode
-4. **Text description**: any other text → talk mode
-5. **No args**: bare `/m2ui` → interactive (ask user what they want to do)
+3. **Diagnose request**: args say "check", "audit", "review", "diagnose", "find bugs in" → diagnose mode
+4. **File reference**: args reference a `.py` file in `uiscript/` or `root/` (e.g., `uimovechannel.py`, `MoveChannelDialog.py`) → script mode
+5. **Text description**: any other text → talk mode
+6. **No args**: bare `/m2ui` → interactive (ask user what they want to do)
 
 ## Dispatch
 
@@ -27,7 +29,8 @@ Based on detected mode, read the corresponding mode file from `modes/` directory
 - Screenshot mode → read `modes/screenshot.md`, then follow its instructions
 - Talk mode → read `modes/talk.md`, then follow its instructions
 - Script mode → read `modes/script.md`, then follow its instructions
-- Interactive → ask: "What would you like to do? (a) Create new UI from screenshot, (b) Describe a new UI to build, (c) Modify an existing UI file" — then dispatch to the chosen mode
+- Diagnose mode → read `modes/diagnose.md`, then follow its instructions
+- Interactive → ask: "What would you like to do? (a) Create new UI from screenshot, (b) Describe a new UI to build, (c) Modify an existing UI file, (d) Diagnose an existing UI for bugs" — then dispatch to the chosen mode
 
 ## Before Generating Any Code
 
