@@ -1088,3 +1088,367 @@ def ClearFilter(self):
   but the bar size may not match the filtered item count. For most UIs
   this is acceptable — the scrollbar still works, just the proportional
   indicator may be inaccurate until the user scrolls.
+
+### 7.5 Paginated slot grid
+
+Multiple `grid_table` widgets overlaid at the same position, switched
+via radio button tabs. Each grid uses a different `start_index` to map
+to different slot ranges. Common for shops, inventories, and skill pages.
+
+**Uiscript approach** (recommended for static grids):
+
+```python
+import uiScriptLocale
+
+SLOT_X_COUNT = 5
+SLOT_Y_COUNT = 8
+SLOTS_PER_PAGE = SLOT_X_COUNT * SLOT_Y_COUNT  # 40
+
+window = {
+    "name": "PagedShopWindow",
+    "style": ("movable", "float",),
+    "x": 0, "y": 0,
+    "width": 200, "height": 300,
+    "children": (
+        {
+            "name": "Board",
+            "type": "board",
+            "style": ("attach",),
+            "x": 0, "y": 0,
+            "width": 200, "height": 300,
+            "children": (
+                {
+                    "name": "ItemSlot_0",
+                    "type": "grid_table",
+                    "x": 8, "y": 35,
+                    "start_index": 0,
+                    "x_count": SLOT_X_COUNT,
+                    "y_count": SLOT_Y_COUNT,
+                    "x_step": 32,
+                    "y_step": 32,
+                    "image": "d:/ymir work/ui/public/slot_base.sub",
+                },
+                {
+                    "name": "ItemSlot_1",
+                    "type": "grid_table",
+                    "x": 8, "y": 35,
+                    "start_index": SLOTS_PER_PAGE,
+                    "x_count": SLOT_X_COUNT,
+                    "y_count": SLOT_Y_COUNT,
+                    "x_step": 32,
+                    "y_step": 32,
+                    "image": "d:/ymir work/ui/public/slot_base.sub",
+                },
+                {
+                    "name": "Tab_0",
+                    "type": "radio_button",
+                    "x": 50, "y": 5,
+                    "text": "I",
+                    "default_image": "d:/ymir work/ui/public/small_button_01.sub",
+                    "over_image": "d:/ymir work/ui/public/small_button_02.sub",
+                    "down_image": "d:/ymir work/ui/public/small_button_03.sub",
+                },
+                {
+                    "name": "Tab_1",
+                    "type": "radio_button",
+                    "x": 115, "y": 5,
+                    "text": "II",
+                    "default_image": "d:/ymir work/ui/public/small_button_01.sub",
+                    "over_image": "d:/ymir work/ui/public/small_button_02.sub",
+                    "down_image": "d:/ymir work/ui/public/small_button_03.sub",
+                },
+            ),
+        },
+    ),
+}
+```
+
+**Root class wiring:**
+
+```python
+PAGE_COUNT = 2
+SLOTS_PER_PAGE = 40
+
+def __LoadWindow(self):
+    # ... LoadScriptFile ...
+
+    self.slotPages = []
+    self.tabButtons = []
+    for i in range(PAGE_COUNT):
+        self.slotPages.append(self.GetChild("ItemSlot_%d" % i))
+        self.tabButtons.append(self.GetChild("Tab_%d" % i))
+
+    from _weakref import proxy
+    ref = proxy(self)
+    self.radioGroup = ui.RadioButtonGroup.Create([
+        (self.tabButtons[i], lambda page=i, r=ref: r.__SetPage(page), lambda page=i: None)
+        for i in range(PAGE_COUNT)
+    ])
+
+def __SetPage(self, pageIndex):
+    for i, page in enumerate(self.slotPages):
+        if i == pageIndex:
+            page.Show()
+        else:
+            page.Hide()
+```
+
+**Pitfalls:**
+- `start_index` offsets each grid's slot numbering — page 0 uses slots
+  0-39, page 1 uses slots 40-79. Slot event callbacks receive the
+  absolute index, not the page-relative one.
+- The select lambda uses `proxy(self)` to avoid a circular reference
+  leak — same pattern as Section 7.2. The unselect lambda is safe since
+  it captures only `page` (an int), not `self`.
+- All grids occupy the same position — only one is visible at a time.
+  `RadioButtonGroup.Create` auto-selects the first button.
+- Initialize `self.slotPages` as `[]`, `self.tabButtons` as `[]`, and
+  `self.radioGroup` as `None` in `Initialize()`.
+
+### 7.6 Confirmation dialog (QuestionDialog)
+
+Modal yes/no dialog using the built-in `uiCommon.QuestionDialog`. Use
+for destructive actions, purchases, or any choice requiring confirmation.
+
+```python
+import uiCommon
+
+def __AskConfirmation(self, message):
+    dialog = uiCommon.QuestionDialog()
+    dialog.SetText(message)
+    dialog.SetAcceptEvent(ui.__mem_func__(self.__OnConfirmAccept))
+    dialog.SetCancelEvent(ui.__mem_func__(self.__OnConfirmCancel))
+    dialog.Open()
+    self.confirmDialog = dialog
+
+def __OnConfirmAccept(self):
+    if self.confirmDialog:
+        self.confirmDialog.Close()
+    self.confirmDialog = None
+    # proceed with action
+
+def __OnConfirmCancel(self):
+    if self.confirmDialog:
+        self.confirmDialog.Close()
+    self.confirmDialog = None
+```
+
+**Variants available in uiCommon:**
+- `QuestionDialog` — single message line, accept/cancel buttons
+- `QuestionDialog2` — two message lines (uses `questiondialog2.py`)
+- `QuestionDialogWithTimeLimit` — auto-closes after timeout
+- `PopupDialog` — single message with one OK button (acknowledgment only)
+- `MoneyInputDialog` — numeric input with accept/cancel (gold/won entry)
+- `InputDialog` — text input with accept/cancel
+
+**Pitfalls:**
+- Store the dialog as `self.confirmDialog` — if it goes out of scope,
+  the weak references in `ui.__mem_func__` will die and callbacks won't fire.
+- Always set `self.confirmDialog = None` after closing — prevents stale
+  references and ensures `@ui.WindowDestroy` can clean it up.
+- `SetAcceptEvent` and `SetCancelEvent` directly set the button's event,
+  so the callback MUST be wrapped in `ui.__mem_func__()`.
+- For passing arguments to callbacks, use `SAFE_SetAcceptEvent` with
+  `SAFE_SetEvent` (stores via `__mem_func__` internally), or use the
+  closure pattern with `proxy(self)`.
+- Initialize `self.confirmDialog` as `None` in `Initialize()`.
+
+### 7.7 Numeric input with validation
+
+SlotBar wrapper containing an EditLine for constrained numeric input.
+Used for gold/won amounts, quantities, and level ranges.
+
+```python
+def __CreateNumericInput(self, parent, yPos, maxChars=12, label=""):
+    if label:
+        labelText = ui.TextLine()
+        labelText.SetParent(parent)
+        labelText.SetPosition(10, yPos + 2)
+        labelText.SetText(label)
+        labelText.Show()
+        self.InsertChild("numLabel", labelText)
+
+    slotBar = ui.SlotBar()
+    slotBar.SetParent(parent)
+    slotBar.SetPosition(100, yPos)
+    slotBar.SetSize(120, 18)
+    slotBar.Show()
+    self.InsertChild("numSlot", slotBar)
+
+    editLine = ui.EditLine()
+    editLine.SetParent(slotBar)
+    editLine.SetPosition(4, 2)
+    editLine.SetSize(112, 18)
+    editLine.SetMax(maxChars)
+    editLine.SetNumberMode()
+    editLine.Show()
+    self.InsertChild("numInput", editLine)
+    self.numInput = editLine
+
+    editLine.OnIMEUpdate = ui.__mem_func__(self.__OnNumericUpdate)
+
+def __OnNumericUpdate(self):
+    ui.EditLine.OnIMEUpdate(self.numInput)
+
+    text = self.numInput.GetText()
+    if not text:
+        return
+
+    try:
+        value = int(text)
+    except ValueError:
+        return
+
+    MAX_VALUE = 2000000000
+    if value > MAX_VALUE:
+        value = MAX_VALUE
+        self.numInput.SetText(str(value))
+
+def GetNumericValue(self):
+    text = self.numInput.GetText()
+    if not text or not text.isdigit():
+        return 0
+    return min(int(text), 2000000000)
+```
+
+**Pitfalls:**
+- `SetNumberMode()` restricts input to digits at the IME level — but
+  still validate in Python because paste operations can bypass it.
+- The `OnIMEUpdate` hook MUST call `ui.EditLine.OnIMEUpdate(self.numInput)`
+  first — see Section 7.4 for why.
+- Clamp to `2000000000` (signed 32-bit max for Metin2 gold). Exceeding
+  this causes server-side overflow bugs.
+- `int(text)` can raise `ValueError` if text is empty or non-numeric
+  after paste — always wrap in try/except.
+- For dual currency (Yang + Won), use `uiCommon.MoneyInputDialog()`
+  instead — it handles both fields with proper validation and supports
+  `app.ENABLE_CHEQUE_SYSTEM` conditionals.
+- Initialize `self.numInput` as `None` in `Initialize()`.
+
+### 7.8 Label-value parameter display
+
+Text label paired with a visual slot containing a centered value.
+Clean pattern for stats panels, guild info, shop earnings, and any
+key-value data display.
+
+```python
+def __CreateLabelValue(self, parent, label, yPos, slotWidth=80):
+    labelText = ui.TextLine()
+    labelText.SetParent(parent)
+    labelText.SetPosition(10, yPos + 2)
+    labelText.SetText(label)
+    labelText.Show()
+    self.InsertChild("label_" + label, labelText)
+
+    slotImg = ui.ImageBox()
+    slotImg.SetParent(parent)
+    slotImg.LoadImage("d:/ymir work/ui/public/parameter_slot_05.sub")
+    slotImg.SetPosition(parent.GetWidth() - slotWidth - 10, yPos)
+    slotImg.Show()
+    self.InsertChild("slot_" + label, slotImg)
+
+    valueText = ui.TextLine()
+    valueText.SetParent(slotImg)
+    valueText.SetPosition(0, 0)
+    valueText.SetWindowHorizontalAlignCenter()
+    valueText.SetHorizontalAlignCenter()
+    valueText.SetVerticalAlignCenter()
+    valueText.SetText("0")
+    valueText.Show()
+    self.InsertChild("value_" + label, valueText)
+
+    return valueText
+
+# Usage:
+self.hpValue = self.__CreateLabelValue(statsPanel, localeInfo.HP, 10)
+self.mpValue = self.__CreateLabelValue(statsPanel, localeInfo.SP, 35)
+self.goldValue = self.__CreateLabelValue(statsPanel, localeInfo.GOLD, 60, slotWidth=120)
+
+# Updating:
+self.hpValue.SetText(str(player.GetStatus(player.HP)))
+self.goldValue.SetText(constInfo.intWithCommas(player.GetElk()))
+```
+
+**Pitfalls:**
+- The value TextLine is parented to the image slot, not to the panel —
+  this ensures it stays centered within the slot regardless of position.
+- Use `SetWindowHorizontalAlignCenter()` + `SetHorizontalAlignCenter()`
+  together for proper centering within the parent image.
+- For large numbers, always use `constInfo.intWithCommas()`.
+- The image `parameter_slot_05.sub` is a standard Metin2 slot background.
+  Other options: `parameter_slot_01.sub` through `_06.sub`.
+- No Initialize() cleanup needed for display-only text lines — they are
+  cleaned up by `@ui.WindowDestroy` via `InsertChild`.
+
+### 7.9 Animated indicator (ani_image)
+
+Frame-by-frame animation using `AniImageBox`. Used for loading spinners,
+HP/SP gauge animations, progress indicators, and buff effect overlays.
+
+**Programmatic approach:**
+
+```python
+def __CreateLoadingSpinner(self, parent, xPos, yPos):
+    spinner = ui.AniImageBox()
+    spinner.SetParent(parent)
+    spinner.SetPosition(xPos, yPos)
+    spinner.SetDelay(6)
+    for i in range(8):
+        spinner.AppendImage("d:/ymir work/ui/loading/%02d.sub" % i)
+    spinner.Show()
+    self.InsertChild("spinner", spinner)
+    self.spinner = spinner
+    return spinner
+```
+
+**Uiscript approach:**
+
+```python
+{
+    "name": "LoadingAni",
+    "type": "ani_image",
+    "x": 0, "y": 0,
+    "delay": 6,
+    "images": (
+        "d:/ymir work/ui/loading/00.sub",
+        "d:/ymir work/ui/loading/01.sub",
+        "d:/ymir work/ui/loading/02.sub",
+        # ... more frames
+    ),
+},
+```
+
+**As a gauge (partial fill):**
+
+```python
+def __CreateGaugeBar(self, parent, yPos, color="red"):
+    gauge = ui.AniImageBox()
+    gauge.SetParent(parent)
+    gauge.SetPosition(10, yPos)
+    gauge.SetDelay(6)
+    for i in range(7):
+        gauge.AppendImage("d:/ymir work/ui/pattern/gauge_%s.tga" % color)
+    gauge.Show()
+    self.InsertChild("gauge", gauge)
+    self.gauge = gauge
+
+def SetGaugePercentage(self, current, maximum):
+    if maximum > 0:
+        self.gauge.SetPercentage(current, maximum)
+```
+
+**Pitfalls:**
+- `SetDelay(n)` sets the number of frames between animation steps —
+  lower = faster. A delay of 6 at 60 FPS means ~10 changes per second.
+- `AppendImage` adds frames in order — the animation loops automatically.
+- `SetPercentage(cur, max)` uses `SetRenderingRect` internally to clip
+  the image horizontally, creating a fill-bar effect. Only makes sense
+  when all frames are the same image (gauge pattern).
+- `OnEndFrame()` is called when the animation completes one full cycle —
+  override it if you need a one-shot animation that stops or triggers
+  an event after playing once.
+- Animation runs as long as the widget is visible. `Hide()` pauses it,
+  `Show()` resumes.
+- Available gauge colors: `gauge_red.tga`, `gauge_blue.tga`,
+  `gauge_green.tga` (standard Metin2 assets).
+- Initialize `self.spinner` / `self.gauge` as `None` in `Initialize()`.
