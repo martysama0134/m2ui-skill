@@ -1,0 +1,63 @@
+name: Sync rules and skill copies
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - skills/m2ui/SKILL.md
+      - rules/m2ui-activate.md
+
+concurrency:
+  group: sync-skill
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Pull latest before making changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin main
+
+      - name: Sync SKILL.md to Codex plugin
+        run: |
+          cp skills/m2ui/SKILL.md plugins/m2ui/skills/m2ui/SKILL.md
+
+      - name: Sync auto-activation rules
+        run: |
+          BODY="rules/m2ui-activate.md"
+
+          # Cline + Copilot — no frontmatter, direct copy
+          mkdir -p .clinerules .github
+          cp "$BODY" .clinerules/m2ui.md
+          cp "$BODY" .github/copilot-instructions.md
+
+          # Cursor — needs alwaysApply frontmatter
+          mkdir -p .cursor/rules
+          printf '%s\n' '---' 'description: "m2ui — Metin2 UI code generator. Activate when user creates, modifies, or generates Metin2 client UI code."' 'alwaysApply: true' '---' '' > .cursor/rules/m2ui.mdc
+          cat "$BODY" >> .cursor/rules/m2ui.mdc
+
+          # Windsurf — needs always_on frontmatter
+          mkdir -p .windsurf/rules
+          printf '%s\n' '---' 'trigger: always_on' '---' '' > .windsurf/rules/m2ui.md
+          cat "$BODY" >> .windsurf/rules/m2ui.md
+
+      - name: Commit and push if changed
+        run: |
+          git add \
+            plugins/m2ui/skills/m2ui/SKILL.md \
+            .clinerules/m2ui.md \
+            .github/copilot-instructions.md \
+            .cursor/rules/m2ui.mdc \
+            .windsurf/rules/m2ui.md
+          git diff --staged --quiet && exit 0
+          git commit -m "chore: sync SKILL.md copies and auto-activation rules [skip ci]"
+          git push

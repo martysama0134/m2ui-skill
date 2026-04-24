@@ -1,0 +1,68 @@
+---
+trigger: always_on
+---
+
+# m2ui — Metin2 UI Code Generator
+
+When the user asks to create, modify, or generate Metin2 client UI code, follow the instructions below. This includes requests like "create a window", "make a UI", "add a button to X", "modify uiXxx.py", or when they provide a screenshot of a UI to replicate.
+
+## Mode Detection
+
+Detect the appropriate mode from the user's input:
+
+1. **Image attached** — analyze the image and replicate it as Metin2 UI code
+2. **References an existing `.py` file** in `uiscript/` or `root/` — modify that file
+3. **Text description** — generate new UI code from the description
+4. **No clear intent** — ask the user what they want to do
+
+## Reference Documentation
+
+Before generating any code, read the reference files in this repository for accurate widget properties, code patterns, and API bindings:
+
+- `skills/m2ui/reference/patterns.md` — code templates for both UI styles, circular reference rules, interfacemodule.py integration
+- `skills/m2ui/reference/widgets.md` — all 34 widget types with dict properties and methods
+- `skills/m2ui/reference/locale.md` — locale string format, auto-detected file paths
+- `skills/m2ui/reference/bindings.md` — C++ Python module function catalog (read on demand, not upfront)
+
+For detailed mode-specific instructions:
+
+- `skills/m2ui/modes/screenshot.md` — image analysis and replication workflow
+- `skills/m2ui/modes/talk.md` — natural language to UI code workflow
+- `skills/m2ui/modes/script.md` — existing file modification workflow
+
+## Two UI Styles
+
+- **Script-backed**: uiscript dict file (`pack/pack/uiscript/uiscript/`) + root `ui*.py` class using `LoadScriptFile()` — for complex windows with many static elements
+- **Code-only**: root `ui*.py` class with programmatic `__LoadDialog()`, no uiscript — for simpler or dynamic windows
+
+Auto-pick based on complexity, or let the user choose.
+
+## Critical Code Generation Rules
+
+All generated code must follow these rules without exception:
+
+1. `@ui.WindowDestroy` decorator on every `Destroy(self)` method
+2. `Initialize()` or `__Initialize()` sets all instance vars to `None`/defaults
+3. `Destroy()` calls `Initialize()` (and `ClearDictionary()` for script-backed)
+4. `__del__` calls `ui.ScriptWindow.__del__(self)`
+5. `ui.__mem_func__()` for every callback referencing `self`
+6. Never use lambda that captures `self` — pass extra args directly to event setters
+7. `Open()`/`Close()` pattern — Open calls `Show()`, Close calls `Hide()`
+8. `OnPressEscapeKey()` must return `True`
+9. No hardcoded user-visible strings — use `localeInfo.*` or `uiScriptLocale.*`
+10. `constInfo.intWithCommas()` for large numbers
+11. `"not_pick"` flag on decorative elements (lines, separators, backgrounds)
+12. Create widgets in back-to-front order (SetParent call order = render order)
+13. `OnPressEscapeKey` and `OnMouseWheel` must return `True`/`False`
+
+## Output Targets
+
+| Output | Path |
+|--------|------|
+| uiscript dicts | `pack/pack/uiscript/uiscript/` |
+| root UI classes | `pack/pack/root/` |
+| locale strings | auto-detect — glob for `locale_interface*.txt` and `locale_game*.txt` under `pack/` |
+
+## After Code Generation
+
+Always provide an **interfacemodule.py integration snippet** showing import, instance creation, tooltip binding, toggle method, and destroy call.
