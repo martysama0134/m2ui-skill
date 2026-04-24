@@ -2256,3 +2256,229 @@ myList.sort(key=lambda x: x.sortValue)        # BEST — use key= directly
 **When in doubt:** Write it the Python 2.7 way. Compatibility is
 nice-to-have, not mandatory. The client ships with a specific Python
 version — the code must work on THAT version first.
+
+---
+
+## 9. Uiscript Dict Manipulation Helpers
+
+`pack/pack/root/utils.py` provides helper functions for programmatic
+modification of uiscript dicts at runtime. Use these when the `script`
+mode needs to modify a loaded uiscript dict before or after
+`LoadScriptFile`.
+
+### Available helpers
+
+```python
+from utils import (
+    GetElementDictByName,
+    FindElementPos,
+    FindElementRef,
+    ElementAddBefore,
+    ElementAddAfter,
+    FindElement,
+    ReplaceElement,
+    AppendChildren,
+)
+```
+
+| Function | Purpose |
+|----------|---------|
+| `GetElementDictByName(dct, name)` | Recursively search children tree for element by name. Returns the dict or `None`. |
+| `FindElementPos(parent_children, name)` | Find index of element in a `children` list by name. Returns index or `-1`. |
+| `FindElementRef(parent_children, name)` | Find element in a `children` list by name. Returns dict or `None`. |
+| `ElementAddBefore(parent_children, name, obj)` | Insert `obj` before the element named `name` in a children list. |
+| `ElementAddAfter(parent_children, name, obj)` | Insert `obj` after the element named `name` in a children list. |
+| `FindElement(name, data)` | Recursively find element by name (simpler API than `GetElementDictByName`). |
+| `ReplaceElement(name, nvalue, data)` | Replace all properties of the named element with `nvalue`. |
+| `AppendChildren(name, children_tuple, data)` | Append child elements to the named element's children. |
+
+### Usage example
+
+```python
+import utils
+
+# Load and modify uiscript dict
+pyScrLoader = ui.PythonScriptLoader()
+scriptDict = {}
+pyScrLoader.LoadScriptFile(self, "UIScript/MyWindow.py")
+
+# Or modify before loading:
+exec(open("UIScript/MyWindow.py").read(), scriptDict)
+window = scriptDict["window"]
+
+# Find and modify an element
+board = utils.GetElementDictByName(window, "Board")
+if board:
+    board["width"] = 400
+
+# Add a new button before the cancel button
+newButton = {
+    "name": "ExtraButton",
+    "type": "button",
+    "x": 0, "y": 30,
+    "text": "Extra",
+    "default_image": "d:/ymir work/ui/public/middle_button_01.sub",
+    "over_image": "d:/ymir work/ui/public/middle_button_02.sub",
+    "down_image": "d:/ymir work/ui/public/middle_button_03.sub",
+}
+boardChildren = list(board["children"])
+utils.ElementAddBefore(boardChildren, "CancelButton", newButton)
+board["children"] = tuple(boardChildren)
+
+# Append children to an element
+utils.AppendChildren("Board", (newButton,), window)
+```
+
+### Pitfalls
+
+- `ElementAddBefore` / `ElementAddAfter` operate on **lists**, not
+  tuples. Uiscript `children` are tuples — convert to list first,
+  modify, then convert back to tuple.
+- `GetElementDictByName` returns a reference to the dict inside the
+  tree — modifying it modifies the original.
+- `FindElementPos` and `FindElementRef` search only the direct
+  children list, not recursively. Use `GetElementDictByName` or
+  `FindElement` for recursive search.
+- `ReplaceElement` deletes keys not in `nvalue` — it's a full
+  replacement, not a merge. To merge, use `FindElement` + direct
+  dict update instead.
+
+---
+
+## 10. Common Anti-Patterns
+
+Mistakes found repeatedly in existing Metin2 UI code. The skill
+should avoid these in generated code and flag them when modifying
+existing files.
+
+### Memory leaks
+
+```python
+# WRONG: direct bound method — circular reference leak
+button.SetEvent(self.OnClick)
+
+# WRONG: lambda captures self — same leak
+slot.SetEvent(lambda i=idx: self.OnSlot(i))
+
+# WRONG: __mem_func__ inside lambda — useless, lambda still holds self
+slot.SetEvent(lambda: ui.__mem_func__(self.OnClick)())
+
+# CORRECT:
+button.SetEvent(ui.__mem_func__(self.OnClick))
+slot.SetEvent(ui.__mem_func__(self.OnSlot), idx)
+
+# CORRECT (RadioButtonGroup — use proxy):
+from _weakref import proxy
+ref = proxy(self)
+lambda k=key, r=ref: r.OnSelect(k)
+```
+
+### Missing cleanup
+
+```python
+# WRONG: instance vars not reset in Initialize
+def Initialize(self):
+    self.board = None
+    # forgot self.scrollBar, self.tooltipItem, etc.
+
+# WRONG: no @ui.WindowDestroy
+def Destroy(self):        # missing decorator — children not cleaned
+    self.Initialize()
+
+# WRONG: dialog stored in local var — goes out of scope, callbacks die
+def AskConfirm(self):
+    dlg = uiCommon.QuestionDialog()
+    dlg.SetAcceptEvent(ui.__mem_func__(self.OnAccept))
+    dlg.Open()
+    # dlg goes out of scope — weak refs in __mem_func__ die
+
+# CORRECT:
+def AskConfirm(self):
+    self.confirmDialog = uiCommon.QuestionDialog()  # store on self
+    ...
+```
+
+### Network packet flooding
+
+```python
+# WRONG: OnUpdate sends packet every frame while visible
+def OnUpdate(self):
+    if self.__IsTooFar():
+        net.SendClosePacket()  # fires 60x/sec until server responds
+
+# CORRECT: Hide first, then send
+def OnUpdate(self):
+    if self.__IsTooFar():
+        self.Hide()            # stops OnUpdate immediately
+        net.SendClosePacket()
+```
+
+### Python 2/3 traps
+
+```python
+# WRONG: has_key (removed in py3)
+if myDict.has_key("name"):
+# CORRECT:
+if "name" in myDict:
+
+# WRONG: map for side effects (returns iterator in py3, never executes)
+map(ui.Window.Hide, self.children)
+# CORRECT:
+for child in self.children:
+    child.Hide()
+
+# WRONG: / for integer division (returns float in py3)
+page = slotIndex / SLOTS_PER_PAGE
+# CORRECT:
+page = slotIndex // SLOTS_PER_PAGE
+
+# WRONG: sort with cmp (removed in py3)
+items.sort(cmp=myCompare)
+# CORRECT:
+items.sort(key=lambda x: x.sortKey)
+```
+
+### Naming and style
+
+```python
+# WRONG: shadow builtins
+list = filter(lambda x: x.IsShow(), self.items)
+type = player.SLOT_TYPE_SHOP
+
+# CORRECT: use descriptive names
+visibleItems = [x for x in self.items if x.IsShow()]
+slotType = player.SLOT_TYPE_SHOP
+
+# WRONG: non-English variable names
+self.Categoria = []
+self.Porcentaje = 0
+self.date_cube = {}
+
+# CORRECT:
+self.categories = []
+self.successPercent = 0
+self.recipeData = {}
+```
+
+### Missing validation
+
+```python
+# WRONG: no bounds check on slot hover
+def OnOverInItem(self, slotIndex):
+    item = self.itemList[slotIndex]  # IndexError if out of range
+
+# CORRECT:
+def OnOverInItem(self, slotIndex):
+    if slotIndex < 0 or slotIndex >= len(self.itemList):
+        return
+    item = self.itemList[slotIndex]
+
+# WRONG: int() without try/except on user input
+value = int(editLine.GetText())  # ValueError on empty/non-numeric
+
+# CORRECT:
+text = editLine.GetText()
+if not text or not text.isdigit():
+    return
+value = min(int(text), 2000000000)
+```
