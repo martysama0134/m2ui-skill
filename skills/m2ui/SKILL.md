@@ -65,6 +65,7 @@ These rules apply to ALL generated code, in ALL modes:
 12. **Z-order**: create widgets in back-to-front order (SetParent call order = render order)
 13. **Event return values**: `OnPressEscapeKey`, `OnMouseWheel` must return `True`/`False`
 14. **Parent bounds clip picking**: size parents large enough to contain all interactive children
+15. **Python 2.7** target — use `//` for int division, `in` not `has_key()`, keep `xrange`. See `reference/patterns.md` Section 8 for full py2/py3 compatibility rules
 
 ## After Code Generation
 

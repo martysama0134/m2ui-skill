@@ -2133,3 +2133,126 @@ def __OnDistanceClose(self):
   `Initialize()`.
 - Don't add a guard flag (`self.alreadyClosed`) — `self.Hide()` already
   prevents further `OnUpdate` calls, so no double-fire risk.
+
+### 7.16 Resource availability indicator
+
+Color-coded text showing whether the player has enough of an item.
+Used in crafting UIs, trade windows, and requirement displays.
+
+```python
+COLOR_ENOUGH = grp.GenerateColor(0.5411, 0.7254, 0.5568, 1.0)    # green
+COLOR_NOT_ENOUGH = grp.GenerateColor(0.9, 0.4745, 0.4627, 1.0)   # red
+COLOR_NEUTRAL = grp.GenerateColor(0.7843, 0.7843, 0.7843, 1.0)   # light gray
+
+def __UpdateMaterialDisplay(self, slotIndex, requiredVnum, requiredCount):
+    item.SelectItem(requiredVnum)
+    itemName = item.GetItemName()
+    haveCount = player.GetItemCountByVnum(requiredVnum)
+
+    text = "%s (%d/%d)" % (itemName, haveCount, requiredCount)
+
+    materialText = self.GetChild("material_%d" % slotIndex)
+    materialText.SetText(text)
+
+    if haveCount >= requiredCount:
+        materialText.SetPackedFontColor(COLOR_ENOUGH)
+    else:
+        materialText.SetPackedFontColor(COLOR_NOT_ENOUGH)
+
+def __GetMaxCraftCount(self, materials):
+    """How many complete crafts can be made from current inventory."""
+    maxCount = 999999
+    for vnum, needed in materials:
+        if needed <= 0:
+            continue
+        have = player.GetItemCountByVnum(vnum)
+        maxCount = min(maxCount, have // needed)
+    return max(0, maxCount)
+```
+
+**Pitfalls:**
+- `grp.GenerateColor()` takes 0.0-1.0 RGBA floats. The green/red values
+  above match the official cube renewal colors.
+- `SetPackedFontColor(color)` sets text color from a packed int returned
+  by `grp.GenerateColor()`. Alternative: `SetFontColor(r, g, b)` with
+  separate float args (0.0-1.0).
+- `player.GetItemCountByVnum(vnum)` counts across ALL inventory pages.
+  No need to iterate slots manually.
+- Use `//` for integer division in `__GetMaxCraftCount` — `/` returns
+  float in Python 3.
+- Call `__UpdateMaterialDisplay` on `Open()`, on quantity change, and
+  after any inventory refresh event.
+
+---
+
+## 8. Python Version Compatibility
+
+The Metin2 client uses **Python 2.7**. Some projects have migrated to
+Python 3. Write Python 2.7 code but keep it Python 3-compatible where
+possible, so the same UI code works on both versions.
+
+### Rules
+
+**Always use (works on both py2 and py3):**
+
+```python
+# Integer division — explicit //
+rows = count // columns           # NOT count / columns
+
+# Parenthesized print
+print("debug: %d" % value)       # NOT print "debug: %d" % value
+
+# Inequality operator
+if a != b:                        # NOT if a <> b:
+
+# Dictionary membership
+if key in myDict:                 # NOT if myDict.has_key(key):
+
+# Direct function call
+func(*args)                       # NOT apply(func, args)
+
+# Exception syntax
+except ValueError as e:           # NOT except ValueError, e:
+
+# String formatting (both work on py2.7+)
+"name: %s" % name                 # classic
+"name: {}".format(name)           # also fine
+```
+
+**Keep Python 2 style (NOT py3-compatible, but required):**
+
+```python
+# xrange — used everywhere in existing code, range() behaves
+# differently in py2 (creates full list). Keep xrange.
+for i in xrange(count):
+
+# Old-style classes inherit from base — already done in all templates
+class MyWindow(ui.ScriptWindow):
+```
+
+**Avoid (breaks on Python 3):**
+
+```python
+# map/filter for side effects — returns iterator in py3, never executes
+map(ui.Window.Hide, self.children)        # WRONG in py3
+for child in self.children: child.Hide()  # CORRECT
+
+filter(lambda x: x.IsShow(), self.items)  # returns iterator in py3
+[x for x in self.items if x.IsShow()]     # CORRECT (list comprehension)
+
+# dict.keys/values/items returning lists — returns views in py3
+keys = myDict.keys()     # list in py2, view in py3
+keys = list(myDict.keys())  # safe on both (but usually unnecessary)
+
+# Sorting with cmp parameter — removed in py3
+myList.sort(cmp=myCompare)                    # WRONG in py3
+myList.sort(key=functools.cmp_to_key(myCompare))  # py3 compatible
+myList.sort(key=lambda x: x.sortValue)        # BEST — use key= directly
+
+# Unicode string prefix — u"text" works on py2.7+ and py3.3+
+# but avoid mixing str and unicode unnecessarily
+```
+
+**When in doubt:** Write it the Python 2.7 way. Compatibility is
+nice-to-have, not mandatory. The client ships with a specific Python
+version — the code must work on THAT version first.
