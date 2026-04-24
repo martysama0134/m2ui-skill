@@ -1452,3 +1452,339 @@ def SetGaugePercentage(self, current, maximum):
 - Available gauge colors: `gauge_red.tga`, `gauge_blue.tga`,
   `gauge_green.tga` (standard Metin2 assets).
 - Initialize `self.spinner` / `self.gauge` as `None` in `Initialize()`.
+
+### 7.10 Scrollable mixed-widget container
+
+A scrollable area containing arbitrary widgets (images, text, buttons,
+slots — not just ListBoxEx items). Uses a Window as a virtual canvas
+that repositions children on scroll, with clip mask to hide overflow.
+
+This differs from Section 7.4 (search-filtered list) which uses
+`ListBoxEx`. Use this pattern when each row is a complex widget
+composition that doesn't fit the `ListBoxEx.Item` model.
+
+```python
+ITEM_HEIGHT = 60
+VISIBLE_HEIGHT = 300
+
+def __CreateScrollableContainer(self, parent, xPos, yPos, width):
+    # Visible viewport — clips children to its bounds
+    viewport = ui.Window()
+    viewport.SetParent(parent)
+    viewport.SetPosition(xPos, yPos)
+    viewport.SetSize(width, VISIBLE_HEIGHT)
+    viewport.Show()
+    self.InsertChild("viewport", viewport)
+    self.viewport = viewport
+
+    # Virtual canvas — taller than viewport, holds all children
+    canvas = ui.Window()
+    canvas.SetParent(viewport)
+    canvas.SetPosition(0, 0)
+    canvas.SetSize(width, VISIBLE_HEIGHT)
+    canvas.Show()
+    self.InsertChild("canvas", canvas)
+    self.canvas = canvas
+
+    # Scrollbar
+    scrollBar = ui.ScrollBar()
+    scrollBar.SetParent(parent)
+    scrollBar.SetPosition(xPos + width + 2, yPos)
+    scrollBar.SetScrollBarSize(VISIBLE_HEIGHT)
+    scrollBar.SetScrollEvent(ui.__mem_func__(self.__OnContainerScroll))
+    scrollBar.Show()
+    self.InsertChild("containerScroll", scrollBar)
+    self.containerScroll = scrollBar
+
+    self.containerItems = []
+    self.containerItemCount = 0
+
+def AddContainerItem(self, widget):
+    """Add a pre-built widget to the scrollable container."""
+    yPos = self.containerItemCount * ITEM_HEIGHT
+    widget.SetParent(self.canvas)
+    widget.SetPosition(0, yPos)
+    widget.Show()
+
+    if app.__BL_CLIP_MASK__:
+        widget.SetClippingMaskWindow(self.viewport)
+
+    self.containerItems.append(widget)
+    self.containerItemCount += 1
+
+    # Resize canvas to fit all items
+    totalHeight = self.containerItemCount * ITEM_HEIGHT
+    self.canvas.SetSize(self.canvas.GetWidth(), max(totalHeight, VISIBLE_HEIGHT))
+
+def __OnContainerScroll(self):
+    if self.containerItemCount <= 0:
+        return
+
+    totalHeight = self.containerItemCount * ITEM_HEIGHT
+    scrollableHeight = totalHeight - VISIBLE_HEIGHT
+
+    if scrollableHeight <= 0:
+        return
+
+    scrollPos = self.containerScroll.GetPos()
+    offset = int(scrollPos * scrollableHeight)
+    self.canvas.SetPosition(0, -offset)
+```
+
+**Building a complex item widget for each row:**
+
+```python
+def __CreateDungeonCard(self, index, iconPath, name, status):
+    """Example: dungeon list entry with icon + text + status."""
+    card = ui.Window()
+    card.SetSize(self.viewport.GetWidth(), ITEM_HEIGHT)
+
+    bg = ui.Bar()
+    bg.SetParent(card)
+    bg.SetPosition(0, 0)
+    bg.SetSize(card.GetWidth(), ITEM_HEIGHT - 2)
+    bg.SetColor(grp.GenerateColor(0.0, 0.0, 0.0, 0.5))
+    bg.AddFlag("not_pick")
+    bg.Show()
+
+    icon = ui.ImageBox()
+    icon.SetParent(card)
+    icon.LoadImage(iconPath)
+    icon.SetPosition(5, 5)
+    icon.AddFlag("not_pick")
+    icon.Show()
+
+    nameText = ui.TextLine()
+    nameText.SetParent(card)
+    nameText.SetPosition(55, 5)
+    nameText.SetText(name)
+    nameText.Show()
+
+    statusText = ui.TextLine()
+    statusText.SetParent(card)
+    statusText.SetPosition(55, 25)
+    statusText.SetText(status)
+    statusText.Show()
+
+    if app.__BL_CLIP_MASK__:
+        bg.SetClippingMaskWindow(self.viewport)
+        icon.SetClippingMaskWindow(self.viewport)
+        nameText.SetClippingMaskWindow(self.viewport)
+        statusText.SetClippingMaskWindow(self.viewport)
+
+    card.Show()
+    return card
+```
+
+**Pitfalls:**
+- **Clip mask is essential** for visual correctness — without it, children
+  render outside the viewport bounds. Always guard with
+  `if app.__BL_CLIP_MASK__:`.
+- Apply `SetClippingMaskWindow(viewport)` to EVERY visible child widget
+  inside each item — the card window itself AND all its children (bg,
+  icon, text). Missing one causes that widget to render outside bounds.
+- The canvas moves via `SetPosition(0, -offset)` — negative Y shifts it
+  upward. Children's positions within the canvas stay fixed.
+- **Picking still works** within viewport bounds because the viewport
+  clips mouse events (parent bounds clip child picking).
+- Without clip mask support, fall back to hiding items that are fully
+  outside the viewport (check Y position against visible range in
+  `__OnContainerScroll`).
+- `Bar` with alpha (`grp.GenerateColor(0.0, 0.0, 0.0, 0.5)`) creates a
+  semi-transparent background. Add `"not_pick"` so clicks pass through
+  to the card underneath.
+- Initialize `self.viewport`, `self.canvas`, `self.containerScroll` as
+  `None`, `self.containerItems` as `[]`, and `self.containerItemCount`
+  as `0` in `Initialize()`.
+
+### 7.11 Semi-transparent dynamic info panel
+
+A `ThinBoard` panel that auto-sizes based on its content. Used for
+mob info popups, item tooltips, and any info panel where the content
+varies per invocation. Based on `MobDropInfoWindow` from `uiTarget.py`.
+
+```python
+class InfoPanel(ui.ThinBoard):
+    DEFAULT_WIDTH = 250
+    BASE_HEIGHT = 13
+
+    def __init__(self):
+        ui.ThinBoard.__init__(self)
+        self.Initialize()
+        self.__LoadGUI()
+
+    def __del__(self):
+        ui.ThinBoard.__del__(self)
+
+    def Initialize(self):
+        self.titleText = None
+        self.infoTexts = {}
+        self.itemSlot = None
+        self.tooltipItem = None
+        self.contentHeight = self.BASE_HEIGHT
+
+    @ui.WindowDestroy
+    def Destroy(self):
+        self.Initialize()
+
+    def __ResetHeight(self):
+        self.contentHeight = self.BASE_HEIGHT
+
+    def __AdvanceHeight(self, amount):
+        """Track cumulative Y position. Returns the Y before advancing."""
+        y = self.contentHeight
+        self.contentHeight += amount
+        return y
+
+    def __LoadGUI(self):
+        self.AddFlag("float")
+        self.AddFlag("movable")
+
+        title = ui.TextLine()
+        title.SetParent(self)
+        title.SetPosition(0, self.__AdvanceHeight(20))
+        title.SetWindowHorizontalAlignCenter()
+        title.SetHorizontalAlignCenter()
+        title.Show()
+        self.titleText = title
+
+        closeBtn = ui.Button()
+        closeBtn.SetParent(self)
+        closeBtn.SetUpVisual("d:/ymir work/ui/public/close_button_01.sub")
+        closeBtn.SetOverVisual("d:/ymir work/ui/public/close_button_02.sub")
+        closeBtn.SetDownVisual("d:/ymir work/ui/public/close_button_03.sub")
+        closeBtn.SetPosition(30, 13)
+        closeBtn.SetWindowHorizontalAlignRight()
+        closeBtn.SetEvent(ui.__mem_func__(self.Close))
+        closeBtn.Show()
+
+    def AddSeparator(self):
+        sep = ui.ExpandedImageBox()
+        sep.SetParent(self)
+        sep.LoadImage("d:/ymir work/ui/game/quest/quest_line.sub")
+        sep.SetPosition(15, self.__AdvanceHeight(15))
+        sep.AddFlag("not_pick")
+        sep.Show()
+
+    def AddTextLine(self, key, text="", centered=False):
+        textLine = ui.TextLine()
+        textLine.SetParent(self)
+        yPos = self.__AdvanceHeight(18)
+        if centered:
+            textLine.SetPosition(0, yPos)
+            textLine.SetWindowHorizontalAlignCenter()
+            textLine.SetHorizontalAlignCenter()
+        else:
+            textLine.SetPosition(15, yPos)
+        textLine.SetText(text)
+        textLine.Show()
+        self.infoTexts[key] = textLine
+        return textLine
+
+    def AddItemGrid(self, itemList, columns=6):
+        """Add a grid of items with semi-transparent slot backgrounds."""
+        if not itemList:
+            return
+
+        rows = (len(itemList) + columns - 1) // columns
+        yPos = self.__AdvanceHeight(rows * 32 + 10)
+
+        itemSlot = ui.GridSlotWindow()
+        itemSlot.SetParent(self)
+        itemSlot.SetPosition(
+            (self.DEFAULT_WIDTH - columns * 32) // 2,
+            yPos,
+        )
+        itemSlot.ArrangeSlot(0, columns, rows, 32, 32, 0, 0)
+        wndMgr.SetSlotBaseImage(
+            itemSlot.hWnd,
+            "d:/ymir work/ui/public/slot_base.sub",
+            1.0, 1.0, 1.0, 0.5,
+        )
+        itemSlot.Show()
+        self.itemSlot = itemSlot
+
+        for idx, entry in enumerate(itemList):
+            itemSlot.SetItemSlot(idx, entry["vnum"], entry.get("count", 0))
+
+        itemSlot.RefreshSlot()
+        itemSlot.SetOverInItemEvent(ui.__mem_func__(self.OnOverInItem))
+        itemSlot.SetOverOutItemEvent(ui.__mem_func__(self.OnOverOutItem))
+
+    def SetItemToolTip(self, tooltip):
+        self.tooltipItem = tooltip
+
+    def ApplySize(self):
+        """Call after adding all content to resize the panel."""
+        self.SetSize(self.DEFAULT_WIDTH, self.contentHeight)
+
+    def Open(self, title=""):
+        self.titleText.SetText(title)
+        self.ApplySize()
+        self.SetCenterPosition()
+        self.SetTop()
+        self.Show()
+
+    def Close(self):
+        self.Hide()
+
+    def OnPressEscapeKey(self):
+        self.Close()
+        return True
+
+    def OnOverInItem(self, slotIndex):
+        if not self.tooltipItem:
+            return
+        if not self.itemSlot:
+            return
+        self.tooltipItem.ClearToolTip()
+        # self.tooltipItem.AddItemData(vnum, metinSlot, attrSlot)
+        self.tooltipItem.ShowToolTip()
+
+    def OnOverOutItem(self):
+        if self.tooltipItem:
+            self.tooltipItem.HideToolTip()
+```
+
+**Usage example:**
+
+```python
+panel = InfoPanel()
+panel.AddTextLine("name", nonplayer.GetMonsterName(vnum), centered=True)
+panel.AddSeparator()
+panel.AddTextLine("hp", "Max HP: %s" % constInfo.intWithCommas(maxHP))
+panel.AddTextLine("dmg", "Damage: %d - %d" % (minDmg, maxDmg))
+panel.AddSeparator()
+panel.AddItemGrid(dropList, columns=6)
+panel.Open(title=localeInfo.MOB_INFO_TITLE)
+```
+
+**Key techniques:**
+- **`__AdvanceHeight(amount)`**: returns current Y and advances the
+  internal counter. Ensures each element is placed below the previous
+  one without manual Y calculation. Reset with `__ResetHeight()` if
+  repopulating.
+- **Semi-transparent slot alpha**: pass `a=0.5` to
+  `wndMgr.SetSlotBaseImage()` — the slot background renders at 50%
+  opacity, letting the ThinBoard texture show through.
+- **ThinBoard base class**: inherits the semi-transparent bordered
+  appearance automatically. No explicit alpha setting needed for the
+  board itself.
+- **Dynamic sizing**: call `ApplySize()` after all content is added.
+  The panel height equals `contentHeight` accumulated by
+  `__AdvanceHeight` calls.
+
+**Pitfalls:**
+- `__AdvanceHeight` modifies `self.contentHeight` — calling it multiple
+  times for the same element will over-count. Each element should call
+  it exactly once.
+- The `contentHeight` accumulates across `Open()` calls. If the panel
+  is reopened with different content, call `__ResetHeight()` and rebuild
+  the widgets, or track which widgets are dynamic vs static.
+- `SetSlotBaseImage` alpha only affects the slot background image, not
+  the item icons — items render at full opacity on the transparent base.
+- Always check `self.itemSlot` is not `None` in event callbacks — the
+  panel may be opened with no items (empty drop list).
+- For very long content that exceeds screen height, consider combining
+  with Section 7.10 (scrollable container) instead of growing the panel
+  indefinitely.
