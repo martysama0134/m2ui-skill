@@ -21,7 +21,15 @@ All agents share the same reference documentation. The source of truth is `rules
 
 ## Installation
 
-### Claude Code (recommended)
+### **Quick Install (recommended)**
+
+Paste this to your AI agent:
+
+```
+Install the m2ui skill from https://github.com/martysama0134/m2ui-skill into my project
+```
+
+### Claude Code
 
 Copy or symlink this directory into your Claude Code local plugins folder:
 
