@@ -37,13 +37,21 @@ Restart Claude Code or run `/reload-plugins` to activate. Verify with `/help` â€
 
 ### Cursor / Windsurf / Cline / Copilot
 
-Clone this repository into your Metin2 project root (or add as a submodule):
+These agents look for rule files at your **project root**. Copy the relevant directories from this repo into your Metin2 project:
 
 ```bash
-git clone https://github.com/user/m2ui-skill.git m2ui-skill
+# Clone the skill repo
+git clone https://github.com/martysama0134/m2ui-skill.git /tmp/m2ui-skill
+
+# Copy the rule files and reference docs to your project root
+cp -r /tmp/m2ui-skill/.cursor /tmp/m2ui-skill/.windsurf /tmp/m2ui-skill/.clinerules your-project/
+cp -r /tmp/m2ui-skill/.github/copilot-instructions.md your-project/.github/
+cp -r /tmp/m2ui-skill/skills your-project/
 ```
 
-The tool-specific rule files (`.cursor/rules/`, `.windsurf/rules/`, etc.) will be picked up automatically by each agent.
+Alternatively, add as a submodule at your project root and symlink the rule directories.
+
+The rule files are thin pointers that tell the agent to read the full reference docs in `skills/m2ui/reference/`.
 
 ### Codex
 
