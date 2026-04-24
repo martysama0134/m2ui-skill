@@ -77,7 +77,7 @@ class MyWindow(ui.ScriptWindow):
 ### 1.2 Uiscript dict file template (uiscript/mywindowdialog.py)
 
 ```python
-import localeInfo
+import uiScriptLocale
 
 window = {
     "name" : "MyWindowDialog",
@@ -121,7 +121,7 @@ window = {
                             "type" : "text",
                             "x" : 0,
                             "y" : 0,
-                            "text" : "Window Title",
+                            "text" : uiScriptLocale.MY_WINDOW_TITLE,
                             "all_align" : "center",
                         },
                     ),
@@ -137,7 +137,7 @@ window = {
 
                     "vertical_align" : "bottom",
 
-                    "text" : localeInfo.OK,
+                    "text" : uiScriptLocale.OK,
 
                     "default_image" : "d:/ymir work/ui/public/middle_button_01.sub",
                     "over_image" : "d:/ymir work/ui/public/middle_button_02.sub",
@@ -154,7 +154,7 @@ window = {
 
                     "vertical_align" : "bottom",
 
-                    "text" : localeInfo.CANCEL,
+                    "text" : uiScriptLocale.CANCEL,
 
                     "default_image" : "d:/ymir work/ui/public/middle_button_01.sub",
                     "over_image" : "d:/ymir work/ui/public/middle_button_02.sub",
@@ -231,6 +231,9 @@ class MyFeatureWindow(ui.ScriptWindow):
 
     @ui.WindowDestroy
     def Destroy(self):
+        # No ClearDictionary() needed — @ui.WindowDestroy handles
+        # children registered via InsertChild() automatically.
+        # Only script-backed windows (Style 1) need ClearDictionary().
         self.Initialize()
 
     def __LoadDialog(self):
@@ -241,7 +244,7 @@ class MyFeatureWindow(ui.ScriptWindow):
         board = ui.BoardWithTitleBar()
         board.SetParent(self)
         board.AddFlag("attach")
-        board.SetTitleName("My Feature")
+        board.SetTitleName(localeInfo.MY_FEATURE_TITLE)
         board.SetSize(self.GetWidth(), self.GetHeight())
         board.SetCloseEvent(ui.__mem_func__(self.Close))
         board.SetPosition(0, 0)
@@ -255,7 +258,7 @@ class MyFeatureWindow(ui.ScriptWindow):
         textLine.SetPosition(0, 40)
         textLine.SetWindowHorizontalAlignCenter()
         textLine.SetHorizontalAlignCenter()
-        textLine.SetText("Description text")
+        textLine.SetText(localeInfo.MY_FEATURE_DESCRIPTION)
         textLine.Show()
         self.InsertChild("description", textLine)
 
@@ -268,7 +271,7 @@ class MyFeatureWindow(ui.ScriptWindow):
             1.0, 1.0, 1.0, 1.0,
         )
         slotWidth = 4 * 32
-        slotX = (board.GetWidth() - slotWidth) / 2
+        slotX = (board.GetWidth() - slotWidth) // 2
         slotGrid.SetPosition(int(slotX), 70)
         slotGrid.Show()
         self.InsertChild("itemSlot", slotGrid)
@@ -282,7 +285,7 @@ class MyFeatureWindow(ui.ScriptWindow):
         btn.SetUpVisual("d:/ymir work/ui/public/large_button_01.sub")
         btn.SetOverVisual("d:/ymir work/ui/public/large_button_02.sub")
         btn.SetDownVisual("d:/ymir work/ui/public/large_button_03.sub")
-        btnX = (board.GetWidth() - btn.GetWidth()) / 2
+        btnX = (board.GetWidth() - btn.GetWidth()) // 2
         btn.SetPosition(int(btnX), 190)
         btn.SetText(localeInfo.OK)
         btn.SetEvent(ui.__mem_func__(self.OnAction))
@@ -373,7 +376,7 @@ container = ui.Window()
 container.SetParent(board)
 totalWidth = (BUTTON_WIDTH * len(GROUP_NAMES)) + (PADDING * (len(GROUP_NAMES) - 1))
 container.SetSize(totalWidth, BUTTON_WIDTH)
-containerX = (board.GetWidth() - totalWidth) / 2
+containerX = (board.GetWidth() - totalWidth) // 2
 container.SetPosition(int(containerX), 40)
 container.Show()
 self.InsertChild("tabContainer", container)
@@ -673,6 +676,10 @@ Open()
   -> Show()
 
 Close()
+  -> Hide tooltip (if tooltipItem)
+  -> Kill editline focus (if has editlines)
+  -> Clear wheel top window (if SetWheelTopWindow was used)
+  -> Destroy owned dialogs (confirmDialog, etc.)
   -> Hide()
 
 Destroy()               # decorated with @ui.WindowDestroy
@@ -683,6 +690,36 @@ Destroy()               # decorated with @ui.WindowDestroy
 __del__()
   -> ScriptWindow.__del__(self)
 ```
+
+### 5.10 Close() cleanup checklist
+
+```python
+def Close(self):
+    if self.tooltipItem:
+        self.tooltipItem.HideToolTip()
+
+    if self.confirmDialog:
+        self.confirmDialog.Close()
+        self.confirmDialog = None
+
+    # Kill editline focus to stop IME capture
+    # (otherwise typing goes to the hidden editline)
+    if self.editLine and self.editLine.IsFocus():
+        self.editLine.KillFocus()
+
+    # Clear wheel top window if SetWheelTopWindow was used
+    # (otherwise mouse wheel events still route to this hidden window)
+    wndMgr.ClearWheelTopWindow()
+
+    self.Hide()
+```
+
+Not every window needs all of these — only add the ones relevant to
+your window's widgets. But forgetting them causes subtle bugs:
+- Hidden tooltip stays visible after window closes
+- IME input goes to a hidden editline
+- Mouse wheel events route to wrong window
+- Owned dialog's weak refs die but dialog stays visible
 
 ---
 

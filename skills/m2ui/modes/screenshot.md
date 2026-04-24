@@ -20,7 +20,7 @@ Identify all visible UI elements and map them to Metin2 widget types:
 | Item/equipment slot | `grid_table` or `slot` |
 | Progress bar | `gauge` |
 | Scrollable list | `listbox` + `scrollbar` |
-| Dropdown | `combo_box` (constructed programmatically) |
+| Dropdown | `ComboBox` (programmatic only, no uiscript type) |
 | Horizontal divider | `horizontalbar` |
 | Tab group | multiple `radio_button` with shared event |
 | Thin bordered panel | `thinboard` or `thinboard_circle` |
