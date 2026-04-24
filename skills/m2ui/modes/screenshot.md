@@ -74,4 +74,4 @@ Show the generated code and ask:
 Iterate until user approves, then write files to:
 - uiscript: `pack/pack/uiscript/uiscript/`
 - root class: `pack/pack/root/`
-- locale: append to `pack/pack/special_patch_ex/locale/common/locale_interface_ex.txt` (UI labels) or `locale_game_ex.txt` (game messages)
+- locale: auto-detect paths per `reference/locale.md` — glob for locale files, ask user if ambiguous

@@ -45,8 +45,7 @@ Read `reference/bindings.md` only when you need to verify whether a specific C++
 |--------|------|
 | uiscript dicts | `pack/pack/uiscript/uiscript/` |
 | root UI classes | `pack/pack/root/` |
-| locale (UI labels) | `pack/pack/special_patch_ex/locale/common/locale_interface_ex.txt` |
-| locale (game msgs) | `pack/pack/special_patch_ex/locale/common/locale_game_ex.txt` |
+| locale strings | **auto-detect** — see `reference/locale.md` for path resolution |
 
 ## Critical Rules
 

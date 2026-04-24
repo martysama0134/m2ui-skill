@@ -57,7 +57,5 @@ Generate:
 After user approves the generated code:
 1. Write uiscript to `pack/pack/uiscript/uiscript/`
 2. Write root class to `pack/pack/root/`
-3. Append locale entries to appropriate `locale_*_ex.txt` file(s):
-   - UI labels (window titles, buttons, tabs) → `pack/pack/special_patch_ex/locale/common/locale_interface_ex.txt`
-   - Game messages (errors, notifications) → `pack/pack/special_patch_ex/locale/common/locale_game_ex.txt`
+3. Append locale entries — auto-detect paths per `reference/locale.md` (glob for locale files, ask user if ambiguous)
 4. Show interfacemodule.py snippet for manual integration (don't auto-modify interfacemodule.py — it's too large and complex for blind modification)

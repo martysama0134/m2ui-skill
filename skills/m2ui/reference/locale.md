@@ -11,10 +11,18 @@ WINDOW_NAME_TITLE	My Window
 
 ## Target Files
 
-| Type | File | When to use |
-|------|------|-------------|
-| UI labels | `pack/pack/special_patch_ex/locale/common/locale_interface_ex.txt` | Window titles, button text, tab names, tooltips, column headers, static labels |
-| Game messages | `pack/pack/special_patch_ex/locale/common/locale_game_ex.txt` | Chat notifications, system messages, error text, confirmation dialogs |
+**Auto-detect locale paths before writing.** Glob for `**/locale_interface*.txt` and `**/locale_game*.txt` under `pack/`. If exactly one pair found, use those paths. If multiple pairs found, show the user what you found and ask which locale directory to use. Cache the choice for the rest of the session.
+
+Common locations (varies by project):
+
+| Type | Possible paths | When to use |
+|------|---------------|-------------|
+| UI labels | `pack/pack/locale/<lang>/locale_interface.txt` | Window titles, button text, tab names, tooltips, column headers, static labels |
+| | `pack/pack/special_patch_ex/locale/common/locale_interface_ex.txt` | |
+| Game messages | `pack/pack/locale/<lang>/locale_game.txt` | Chat notifications, system messages, error text, confirmation dialogs |
+| | `pack/pack/special_patch_ex/locale/common/locale_game_ex.txt` | |
+
+Where `<lang>` is a language code like `en`, `de`, `fr`, `tr`, `ro`, `pl`, `cz`, `br`, etc.
 
 ## Naming Convention
 
