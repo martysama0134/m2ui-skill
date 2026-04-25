@@ -135,6 +135,8 @@ Before showing generated code to the user OR writing any file, run this checklis
 
 If checklist passes: proceed to emit/write. If any item fails: revise silently and re-run.
 
+**Optional second-pass review.** For high-stakes generations (screenshot mode, multi-file edits, gated windows), dispatch the `m2ui-pre-emit-reviewer` subagent BEFORE emission as an independent audit. The reviewer cites file:line for every finding and proposes no fixes — it surfaces issues for you to address. Use it when the silent self-review feels like cargo-cult or when the user has reported regressions in similar windows before. Distinct from `diagnose` mode, which audits user-supplied existing files.
+
 ## After Code Generation
 
 Always provide an **interfacemodule.py integration snippet** showing:

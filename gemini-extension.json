@@ -1,6 +1,6 @@
 {
   "name": "m2ui",
   "description": "Metin2 UI code generator — create and modify client UI from screenshots, descriptions, or existing scripts",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "contextFileName": "GEMINI.md"
 }
