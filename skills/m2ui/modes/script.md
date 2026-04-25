@@ -110,17 +110,16 @@ Based on user's request:
 - Append to appropriate locale file
 - Use `localeInfo.KEY` in root files, `uiScriptLocale.KEY` in uiscript dicts
 
-## Step 4: Verify Consistency
+## Step 4: Pre-Emit Self-Review
 
-After modifications:
-- All new callbacks use `ui.__mem_func__()`
-- No lambda captures `self` — pass extra args directly to event setters
-- All new instance vars added to `Initialize()` (set to None)
-- No hardcoded strings — all user-visible text through `localeInfo.*` or `uiScriptLocale.*`
-- `@ui.WindowDestroy` still present and `Destroy()` calls `Initialize()`
-- New elements have unique `"name"` values for `GetChild()`
-- `"not_pick"` flag on any new decorative elements
-- Event handlers return `True`/`False` where required (OnPressEscapeKey, OnMouseWheel)
+Before showing the user the diff OR writing any file, run the Pre-Emit Self-Review checklist defined in `skills/m2ui/SKILL.md` (the `## Pre-Emit Self-Review` section). All items apply to MODIFIED code, not just freshly generated code. Pay special attention to:
+
+- Modifications must preserve `@ui.WindowDestroy` and `Initialize()` patterns
+- New child elements need unique `"name"` values for `GetChild()`
+- New callbacks follow `reference/event-binding.md` matrix
+- New instance vars added to `Initialize()` (set to None)
+
+Revise silently and re-check until all items pass. Do NOT mention the gate to the user unless an item legitimately requires user input.
 
 ## Step 5: Show Changes
 
