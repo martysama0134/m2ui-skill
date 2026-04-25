@@ -50,6 +50,8 @@ Based on detected mode, read the corresponding mode file from `modes/` directory
 | Calling a C++ Python API (`net.X`, `player.X`, etc.) NOT already in context | `reference/bindings.md` — grep for the function |
 | Patterns reminder needed (Initialize/Destroy, scrollbar wiring, ListBoxEx, integration template) | `reference/patterns.md` — jump to the relevant section |
 | Auditing existing code for anti-patterns | Mode-specific: `modes/diagnose.md` already loaded by mode dispatch |
+| User describes a visible symptom ("X looks broken", "click does nothing", "leak after closing") | `reference/failure-atlas.md` — jump to the matching symptom heading FIRST, before loading anchors |
+| Composing a window from scratch where the visual style/sizing matters | `reference/visual-conventions.md` — pick archetype + chrome + palette before coding |
 
 **Anchor selection** — when generating from scratch, pick the closest anchor:
 
@@ -66,7 +68,7 @@ If no anchor matches exactly, pick the closest, copy its skeleton, swap the spec
 
 **Load discipline:** Read `reference/anchors/README.md` to choose the anchor, then load AT MOST ONE anchor file — EXCEPT `05-feature-gated.md`, which is a call-site wrapper that augments another anchor. Generating a flag-gated window means loading TWO anchors: 05 (for the gating pattern) + the underlying window-type anchor (01/02/03/04/06). Do not load all anchors unless the user's task is comparing anchors. Same applies to widgets.md/locale.md/bindings.md/patterns.md — load only the section you need, not the whole file.
 
-> **Phase 3 (future):** A failure-atlas + fork-deltas reference will expand this matrix further (symptom-first lookup, per-fork behavior).
+> **Symptom-first dispatch:** When the user reports a visible bug rather than asking for new code, load `reference/failure-atlas.md` BEFORE any anchor. Diagnose, then (if a fix means new code) load the relevant anchor.
 
 ## Output Targets
 

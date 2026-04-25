@@ -135,3 +135,9 @@ Present findings as a structured report:
 
 After reporting, ask: "Want me to fix these issues?" If yes, apply
 fixes following script mode's modification rules.
+
+## Cross-reference: failure-atlas
+
+If the user reports a SYMPTOM rather than asking for an audit ("the window flickers", "click does nothing"), do NOT run a full diagnose audit. Load `skills/m2ui/reference/failure-atlas.md` and jump to the matching symptom entry — the atlas's ranked root-cause checklist is faster than a brute-force file scan for symptom-driven cases.
+
+Use diagnose mode when the user wants a code-quality scan (no specific symptom, "audit this file"); use failure-atlas when the user has a specific visible bug to chase.

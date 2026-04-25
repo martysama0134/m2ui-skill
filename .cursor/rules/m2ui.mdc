@@ -33,6 +33,8 @@ Detect the appropriate mode from the user's input:
 | Locale-heavy work | `skills/m2ui/reference/locale.md` |
 | Calling a C++ Python API not in context | `skills/m2ui/reference/bindings.md` |
 | Patterns reminder | `skills/m2ui/reference/patterns.md` (relevant section only) |
+| User describes a visible symptom ("X looks broken", "leak after closing") | `skills/m2ui/reference/failure-atlas.md` — load FIRST before anchors |
+| Visual style/sizing for a new window matters | `skills/m2ui/reference/visual-conventions.md` — pick archetype + chrome + palette |
 
 **Anchor selection** for new windows:
 
