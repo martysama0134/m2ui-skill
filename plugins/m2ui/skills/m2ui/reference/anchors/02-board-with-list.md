@@ -125,10 +125,164 @@ window = {
                             "x" : 57,
                             "y" : 0,
                         },
-                        # ... material12..material15 follow same pattern, x += 33 each ...
+                        {
+                            "name" : "material12",
+                            "type" : "grid_table",
+                            "start_index" : 0,
+                            "x_count" : 1, "y_count" : 3,
+                            "x_step" : 32, "y_step" : 32,
+                            "x" : 90, "y" : 0,
+                        },
+                        {
+                            "name" : "material13",
+                            "type" : "grid_table",
+                            "start_index" : 0,
+                            "x_count" : 1, "y_count" : 3,
+                            "x_step" : 32, "y_step" : 32,
+                            "x" : 123, "y" : 0,
+                        },
+                        {
+                            "name" : "material14",
+                            "type" : "grid_table",
+                            "start_index" : 0,
+                            "x_count" : 1, "y_count" : 3,
+                            "x_step" : 32, "y_step" : 32,
+                            "x" : 156, "y" : 0,
+                        },
+                        {
+                            "name" : "material15",
+                            "type" : "grid_table",
+                            "start_index" : 0,
+                            "x_count" : 1, "y_count" : 3,
+                            "x_step" : 32, "y_step" : 32,
+                            "x" : 189, "y" : 0,
+                        },
                     ),
                 },
-                # ... result2board, result3board same shape, y offset by 106 each ...
+                {
+                    "name" : "result2board",
+                    "type" : "window",
+
+                    "x" : 25,
+                    "y" : 147,
+
+                    "width" : 216,
+                    "height" : 64,
+
+                    "children" :
+                    (
+                        {
+                            "name" : "result2",
+                            "type" : "grid_table",
+                            "start_index" : 0,
+                            "x_count" : 1, "y_count" : 3,
+                            "x_step" : 32, "y_step" : 32,
+                            "x" : 0, "y" : 0,
+                        },
+                        {
+                            "name" : "material21",
+                            "type" : "grid_table",
+                            "start_index" : 0,
+                            "x_count" : 1, "y_count" : 3,
+                            "x_step" : 32, "y_step" : 32,
+                            "x" : 57, "y" : 0,
+                        },
+                        {
+                            "name" : "material22",
+                            "type" : "grid_table",
+                            "start_index" : 0,
+                            "x_count" : 1, "y_count" : 3,
+                            "x_step" : 32, "y_step" : 32,
+                            "x" : 90, "y" : 0,
+                        },
+                        {
+                            "name" : "material23",
+                            "type" : "grid_table",
+                            "start_index" : 0,
+                            "x_count" : 1, "y_count" : 3,
+                            "x_step" : 32, "y_step" : 32,
+                            "x" : 123, "y" : 0,
+                        },
+                        {
+                            "name" : "material24",
+                            "type" : "grid_table",
+                            "start_index" : 0,
+                            "x_count" : 1, "y_count" : 3,
+                            "x_step" : 32, "y_step" : 32,
+                            "x" : 156, "y" : 0,
+                        },
+                        {
+                            "name" : "material25",
+                            "type" : "grid_table",
+                            "start_index" : 0,
+                            "x_count" : 1, "y_count" : 3,
+                            "x_step" : 32, "y_step" : 32,
+                            "x" : 189, "y" : 0,
+                        },
+                    ),
+                },
+                {
+                    "name" : "result3board",
+                    "type" : "window",
+
+                    "x" : 25,
+                    "y" : 253,
+
+                    "width" : 216,
+                    "height" : 64,
+
+                    "children" :
+                    (
+                        {
+                            "name" : "result3",
+                            "type" : "grid_table",
+                            "start_index" : 0,
+                            "x_count" : 1, "y_count" : 3,
+                            "x_step" : 32, "y_step" : 32,
+                            "x" : 0, "y" : 0,
+                        },
+                        {
+                            "name" : "material31",
+                            "type" : "grid_table",
+                            "start_index" : 0,
+                            "x_count" : 1, "y_count" : 3,
+                            "x_step" : 32, "y_step" : 32,
+                            "x" : 57, "y" : 0,
+                        },
+                        {
+                            "name" : "material32",
+                            "type" : "grid_table",
+                            "start_index" : 0,
+                            "x_count" : 1, "y_count" : 3,
+                            "x_step" : 32, "y_step" : 32,
+                            "x" : 90, "y" : 0,
+                        },
+                        {
+                            "name" : "material33",
+                            "type" : "grid_table",
+                            "start_index" : 0,
+                            "x_count" : 1, "y_count" : 3,
+                            "x_step" : 32, "y_step" : 32,
+                            "x" : 123, "y" : 0,
+                        },
+                        {
+                            "name" : "material34",
+                            "type" : "grid_table",
+                            "start_index" : 0,
+                            "x_count" : 1, "y_count" : 3,
+                            "x_step" : 32, "y_step" : 32,
+                            "x" : 156, "y" : 0,
+                        },
+                        {
+                            "name" : "material35",
+                            "type" : "grid_table",
+                            "start_index" : 0,
+                            "x_count" : 1, "y_count" : 3,
+                            "x_step" : 32, "y_step" : 32,
+                            "x" : 189, "y" : 0,
+                        },
+                    ),
+                },
 
                 {
                     "name" : "AcceptButton",

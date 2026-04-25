@@ -20,7 +20,7 @@ There is no flex, grid, stack, or any flow-based auto-layout. Every widget gets 
 
 There are no reusable components in the React sense. Each window is its own root class extending `ui.ScriptWindow` (or `ui.BoardWithTitleBar`, `ui.Board`, etc.).
 
-- "Composition" = `parent.InsertChild(child)` + `child.SetParent(parent)`. Order matters: later `InsertChild` calls draw on top.
+- "Composition" = `child.SetParent(parent)` (preferred) or `parent.InsertChild(name, child)` for named registration. Z-order is determined by `SetParent` call order — later calls draw on top.
 - "Props" = constructor args + setter methods (`window.SetItemList(items)`).
 - There is no `render()`. UI is built once in `__LoadDialog` (code-only style) or via `LoadScriptFile("uiscript/yourwindow.py")` (script-backed style). Not on every state change.
 - Two valid styles: **script-backed** (uiscript dict + root class) for static layouts, **code-only** (programmatic root class) for dynamic content. See `skills/m2ui/reference/patterns.md` for both.

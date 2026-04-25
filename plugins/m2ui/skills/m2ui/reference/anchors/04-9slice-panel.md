@@ -221,6 +221,10 @@ class DescPanelWindow(ui.ScriptWindow):
 
         try:
             self.descWindow = self.GetChild("desc_window")
+            # board_with_titlebar exposes its inner titlebar via the window's
+            # GetChild("TitleBar") directly — wire its X button to root Close,
+            # otherwise clicking X hides only the inner board, leaving root visible.
+            self.GetChild("TitleBar").SetCloseEvent(ui.__mem_func__(self.Close))
         except:
             import exception
             exception.Abort("DescPanelWindow.__LoadWindow.BindObject")
