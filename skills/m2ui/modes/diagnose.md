@@ -115,7 +115,7 @@ Present findings as a structured report:
 ## Diagnosis: uiMyWindow.py
 
 ### Critical (must fix)
-- Line 45: `button.SetEvent(self.OnClick)` — bare bound method, no `ui.__mem_func__`/`SAFE_SetEvent`/proxy wrapper (see `reference/event-binding.md`). Memory leak.
+- Line 45: `button.SetEvent(self.OnClick)` — bare bound method, no `ui.__mem_func__`/`SAFE_SetEvent`/proxy wrapper (see `skills/m2ui/reference/event-binding.md`). Memory leak.
 - Line 12: No @ui.WindowDestroy decorator on Destroy(). Children won't be cleaned up.
 
 ### Important (should fix)

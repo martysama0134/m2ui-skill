@@ -21,7 +21,7 @@ Before making changes:
 - List all existing child elements (from uiscript dict or `InsertChild` calls)
 - Identify the UI style (script-backed vs code-only)
 - Check if `@ui.WindowDestroy` is present — if not, add it
-- Check if existing callbacks follow `reference/event-binding.md` matrix (`ui.__mem_func__`, `SAFE_SetEvent`, or proxy lambda)
+- Check if existing callbacks follow `skills/m2ui/reference/event-binding.md` matrix (`ui.__mem_func__`, `SAFE_SetEvent`, or proxy lambda)
 - Note any feature flags (`app.BL_*`, `app.ENABLE_*`)
 - Note existing `Initialize()` / `__Initialize()` method and what it resets
 
@@ -60,7 +60,7 @@ class for it, follow this checklist:
 5. **Generate Initialize()** with a `None` entry for every interactive
    widget and dynamic data structure.
 
-6. **Wire events** for all interactive widgets (use `reference/event-binding.md` matrix to pick wrapper; `ui.__mem_func__` is the default):
+6. **Wire events** for all interactive widgets (use `skills/m2ui/reference/event-binding.md` matrix to pick wrapper; `ui.__mem_func__` is the default):
    - Buttons → `SetEvent(ui.__mem_func__(self.OnXxx))`
    - Editlines → hook `OnIMEUpdate` if text changes matter
    - Scrollbars → `SetScrollEvent(ui.__mem_func__(self.__OnScroll))`
@@ -97,7 +97,7 @@ Based on user's request:
 - Add widget creation in `__LoadDialog()` method
 - Follow existing creation order (z-order matters — later = on top)
 - Use `SetParent()`, `SetPosition()`, `Show()`, `InsertChild()`
-- All callbacks wrapped per `reference/event-binding.md` matrix
+- All callbacks wrapped per `skills/m2ui/reference/event-binding.md` matrix
 
 **Adding handler methods to root class:**
 - Add method definitions in the class
@@ -116,7 +116,7 @@ Before showing the user the diff OR writing any file, run the Pre-Emit Self-Revi
 
 - Modifications must preserve `@ui.WindowDestroy` and `Initialize()` patterns
 - New child elements need unique `"name"` values for `GetChild()`
-- New callbacks follow `reference/event-binding.md` matrix
+- New callbacks follow `skills/m2ui/reference/event-binding.md` matrix
 - New instance vars added to `Initialize()` (set to None)
 
 Revise silently and re-check until all items pass. Do NOT mention the gate to the user unless an item legitimately requires user input.

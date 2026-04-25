@@ -48,7 +48,7 @@ Identify all visible UI elements and map them to Metin2 widget types:
 ## Step 4: Generate Code
 
 Read these reference files adjacent to this mode file (in `../reference/`):
-- `reference/event-binding.md` for the callback wrapping matrix (mandatory)
+- `skills/m2ui/reference/event-binding.md` for the callback wrapping matrix (mandatory)
 - `reference/widgets.md` for exact property names and valid values
 - `reference/patterns.md` for the appropriate style template
 - `reference/locale.md` for locale string rules
@@ -61,7 +61,7 @@ Generate:
    - `__del__` calling `ui.ScriptWindow.__del__(self)`
    - `Open()`/`Close()` pattern
    - `OnPressEscapeKey()` returning `True`
-   - All callbacks with `self` wrapped per `reference/event-binding.md` matrix (`ui.__mem_func__`, `SAFE_SetEvent` if fork provides it, or `lambda r=proxy(self): r.X()`)
+   - All callbacks with `self` wrapped per `skills/m2ui/reference/event-binding.md` matrix (`ui.__mem_func__`, `SAFE_SetEvent` if fork provides it, or `lambda r=proxy(self): r.X()`)
 3. Locale string entries to append to appropriate `locale_*_ex.txt`
 4. An interfacemodule.py integration snippet
 
