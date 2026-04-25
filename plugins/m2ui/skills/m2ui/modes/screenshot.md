@@ -47,11 +47,11 @@ Identify all visible UI elements and map them to Metin2 widget types:
 
 ## Step 4: Generate Code
 
-Read these reference files adjacent to this mode file (in `../reference/`):
-- `reference/event-binding.md` for the callback wrapping matrix (mandatory)
-- `reference/widgets.md` for exact property names and valid values
-- `reference/patterns.md` for the appropriate style template
-- `reference/locale.md` for locale string rules
+Read these reference files (paths relative to repo root):
+- `skills/m2ui/reference/event-binding.md` for the callback wrapping matrix (mandatory)
+- `skills/m2ui/reference/widgets.md` for exact property names and valid values
+- `skills/m2ui/reference/patterns.md` for the appropriate style template
+- `skills/m2ui/reference/locale.md` for locale string rules
 
 Generate:
 1. The uiscript file (if script-backed style) or `__LoadDialog` method (if code-only)
@@ -61,7 +61,7 @@ Generate:
    - `__del__` calling `ui.ScriptWindow.__del__(self)`
    - `Open()`/`Close()` pattern
    - `OnPressEscapeKey()` returning `True`
-   - All callbacks with `self` wrapped per `reference/event-binding.md` matrix (`ui.__mem_func__`, `SAFE_SetEvent` if fork provides it, or `lambda r=proxy(self): r.X()`)
+   - All callbacks with `self` wrapped per `skills/m2ui/reference/event-binding.md` matrix (`ui.__mem_func__`, `SAFE_SetEvent` if fork provides it, or `lambda r=proxy(self): r.X()`)
 3. Locale string entries to append to appropriate `locale_*_ex.txt`
 4. An interfacemodule.py integration snippet
 
@@ -79,4 +79,4 @@ Show the generated code and ask:
 Iterate until user approves, then write files to:
 - uiscript: `pack/pack/uiscript/uiscript/`
 - root class: `pack/pack/root/`
-- locale: auto-detect paths per `reference/locale.md` — glob for locale files, ask user if ambiguous
+- locale: auto-detect paths per `skills/m2ui/reference/locale.md` — glob for locale files, ask user if ambiguous
