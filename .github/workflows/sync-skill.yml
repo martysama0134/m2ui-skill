@@ -8,6 +8,7 @@ on:
       - skills/m2ui/reference/**
       - skills/m2ui/modes/**
       - rules/m2ui-activate.md
+      - agents/**
 
 concurrency:
   group: sync-skill
@@ -38,6 +39,14 @@ jobs:
           mkdir -p plugins/m2ui/skills/m2ui
           rsync -a --delete skills/m2ui/ plugins/m2ui/skills/m2ui/
 
+      - name: Sync agents to Codex plugin
+        run: |
+          # v2.5.0: agents/ dir holds dispatchable subagent definitions
+          # (e.g., m2ui-pre-emit-reviewer). Mirror to the Codex plugin variant
+          # so it ships with the same agent surface.
+          mkdir -p plugins/m2ui/agents
+          rsync -a --delete agents/ plugins/m2ui/agents/
+
       - name: Sync auto-activation rules
         run: |
           BODY="rules/m2ui-activate.md"
@@ -61,6 +70,7 @@ jobs:
         run: |
           git add \
             plugins/m2ui/skills/m2ui \
+            plugins/m2ui/agents \
             .clinerules/m2ui.md \
             .github/copilot-instructions.md \
             .cursor/rules/m2ui.mdc \
