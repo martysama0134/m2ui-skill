@@ -81,8 +81,8 @@ Three phases, each = own design + plan + PR(s). This spec covers all three at de
 
 1. `@ui.WindowDestroy` on every Destroy
 2. All `self.X` assignments listed in Initialize
-3. Every callback wrapped (`ui.__mem_func__` OR `SAFE_SetEvent` OR no-self lambda)
-4. `OnPressEscapeKey` returns True/False
+3. Every callback wrapped (`ui.__mem_func__` OR `SAFE_SetEvent` OR no-self lambda OR `lambda r=proxy(self): r.X()`); never bare bound method or lambda capturing `self`
+4. `OnPressEscapeKey` returns `True` (not `False`); `OnMouseWheel` returns `True`/`False`
 5. All user-visible strings via locale module
 6. All decorative elements have `not_pick`
 7. Parent bounds contain all interactive children
@@ -125,15 +125,25 @@ Three phases, each = own design + plan + PR(s). This spec covers all three at de
 
 | File | Action | Est lines |
 |------|--------|-----------|
-| `skills/m2ui/SKILL.md` | Edit: add Pre-Emit section, replace rules 5-6 w/ matrix pointer, add asset + API rules | +50 net |
-| `rules/m2ui-activate.md` | Mirror SKILL.md changes (CI syncs other copies) | +50 net |
+| `skills/m2ui/SKILL.md` | Edit: add Pre-Emit section, replace rules 5-6 w/ matrix pointer, add asset + API rules, add minimal seed router rule pointing at event-binding.md | +60 net |
+| `rules/m2ui-activate.md` | Apply parallel edits (same textual changes; this file is the body for cline/copilot/cursor/windsurf via CI) | +60 net |
 | `skills/m2ui/modes/talk.md` | Add Pre-Emit invocation | +5 |
 | `skills/m2ui/modes/screenshot.md` | Add Pre-Emit invocation | +5 |
 | `skills/m2ui/modes/script.md` | Add Pre-Emit invocation | +5 |
+| `skills/m2ui/modes/diagnose.md` | Add `SAFE_SetEvent` to allowed-wrappers list (currently flags it); add asset-path + API-existence checks; cross-link event-binding.md | +20 |
 | `skills/m2ui/reference/event-binding.md` | New file w/ event matrix | ~80 |
 | `skills/m2ui/reference/patterns.md` | Add cross-link to event-binding.md at top of "Callbacks" section; remove inline ui.__mem_func__ lecture (now in event-binding.md) | -20 net |
+| `.github/workflows/sync-skill.yml` | Extend trigger paths to include `skills/m2ui/reference/**` and `skills/m2ui/modes/**`; replace single-file `cp SKILL.md` with `cp -r skills/m2ui/* plugins/m2ui/skills/m2ui/` so Codex plugin gets full reference + modes subtree | +10 |
+| `gemini-extension.json`, `.claude-plugin/plugin.json`, `plugins/m2ui/.codex-plugin/plugin.json` | Bump version 2.0.0 → 2.1.0 | +3 |
 
-**Note on "Mirror" actions:** `rules/m2ui-activate.md` is the CI source of truth that propagates to `.cursor/rules/`, `.windsurf/rules/`, `.clinerules/`, `.github/copilot-instructions.md`, and `plugins/m2ui/skills/m2ui/SKILL.md`. "Mirror SKILL.md changes" = re-apply the same textual edit to `m2ui-activate.md` in the same PR. Hand-editing other copies is forbidden.
+### Note on source files
+
+`skills/m2ui/SKILL.md` and `rules/m2ui-activate.md` are **co-equal source files**, not source-of-truth + mirror. They serve different consumers:
+
+- `skills/m2ui/SKILL.md` → used by Claude Code directly + copied to `plugins/m2ui/skills/m2ui/SKILL.md` for Codex plugin (CI)
+- `rules/m2ui-activate.md` → used as body for `.cursor/`, `.windsurf/`, `.clinerules/`, `.github/copilot-instructions.md` (CI)
+
+Edit both per phase, in lockstep, in the same PR. Do not hand-edit any of the CI-generated copies.
 
 ### Phase 1 success criteria
 
@@ -206,9 +216,11 @@ Three phases, each = own design + plan + PR(s). This spec covers all three at de
 
 **Index file:** `anchors/README.md` w/ matrix: "Generating type X? Read anchor Y."
 
-### 2.3 Decision-matrix router (gap B)
+### 2.3 Decision-matrix router (gap B — full version)
 
-**Where:** Replace SKILL.md "Before Generating Any Code" section.
+**Phase 1 already shipped a minimal seed router** (just routes to event-binding.md). Phase 2 expands it into the full decision matrix below.
+
+**Where:** Replace SKILL.md "Before Generating Any Code" section (which by Phase 2 already has the seed router from Phase 1).
 
 ```markdown
 ## Before Generating
@@ -342,16 +354,18 @@ Specific deltas need pack-side verification during Phase 3 plan execution. This 
 
 ### CI sync
 
-`rules/m2ui-activate.md` is source of truth → CI propagates to:
-- `.cursor/rules/m2ui.mdc`
-- `.windsurf/rules/m2ui.md`
-- `.clinerules/m2ui.md`
-- `.github/copilot-instructions.md`
-- `plugins/m2ui/skills/m2ui/SKILL.md` (per user note: GitHub Action handles drift)
+Two source files, each driving its own consumer set via `.github/workflows/sync-skill.yml`:
 
-**Implication:** Edit `rules/m2ui-activate.md` only; never hand-edit copies. Each phase PR mirrors SKILL.md changes into `m2ui-activate.md` as paired commits.
+- `skills/m2ui/SKILL.md` → copied to `plugins/m2ui/skills/m2ui/SKILL.md` (Codex plugin)
+- `rules/m2ui-activate.md` → copied to `.clinerules/m2ui.md`, `.github/copilot-instructions.md`, `.cursor/rules/m2ui.mdc` (w/ frontmatter), `.windsurf/rules/m2ui.md` (w/ frontmatter)
 
-**New ref files** (mental-model.md, anchors/*, failure-atlas.md, etc) live under `skills/m2ui/reference/` only — agents read them via path, not via rule sync. Phase 1 plan task: verify CI workflow handles new file additions; extend if not.
+**Edit rule:** Each phase PR edits BOTH source files in lockstep with parallel textual changes. Never hand-edit the generated copies.
+
+**Workflow extension required (Phase 1):** current workflow only triggers on the two source files and only copies `SKILL.md` to the Codex plugin. New ref files (`event-binding.md` in Phase 1; `mental-model.md`, `anchors/*`, `failure-atlas.md`, etc. in Phases 2-3) and new mode-file edits won't reach the Codex plugin without changes:
+- Add `skills/m2ui/reference/**` and `skills/m2ui/modes/**` to trigger paths
+- Replace `cp skills/m2ui/SKILL.md plugins/m2ui/skills/m2ui/SKILL.md` with `cp -r skills/m2ui/. plugins/m2ui/skills/m2ui/` (preserves SKILL.md + reference/ + modes/ subtree)
+
+Cursor/Windsurf/Cline/Copilot read project files directly, so they pick up new ref files without sync — but the activation rule body in `rules/m2ui-activate.md` should mention the new ref paths so those tools know what to look for.
 
 ### Version bumps
 
@@ -397,7 +411,8 @@ No automated test harness exists for skill content (it's prompts, not code).
 | Anchors get stale as fork conventions drift | Anchor files dated; include "last verified against pack vX" header |
 | Fork-deltas matrix incomplete or wrong | Phase 3 plan ships partial matrix + invites user contributions |
 | Router cuts too much context, agent misses edge cases | Conservative defaults: always load mental-model + event-binding + 1 anchor minimum |
-| New ref files not synced to other agent copies | Phase 1 task: extend CI workflow to include `reference/` subtree or document path-based reads |
+| New ref files not synced to Codex plugin | Phase 1 deliverable explicitly extends `.github/workflows/sync-skill.yml` to mirror full `skills/m2ui/` subtree |
+| Workflow extension breaks existing sync (`cp -r` overwrites or path globbing fails on GHA runner) | Test workflow on a throwaway branch before Phase 1 PR merges; keep old single-file copy as commented fallback |
 
 ---
 
