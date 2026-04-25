@@ -46,7 +46,7 @@ Detect the appropriate mode from the user's input:
 
 If no anchor matches exactly, pick the closest, copy its skeleton, swap the specifics. Do NOT invent layout from scratch.
 
-**Load discipline:** Read `skills/m2ui/reference/anchors/README.md` to choose the anchor, then load AT MOST ONE anchor file. Do not load all anchors unless the user's task is comparing anchors.
+**Load discipline:** Read `skills/m2ui/reference/anchors/README.md` to choose the anchor, then load AT MOST ONE anchor file — EXCEPT `05-feature-gated.md`, which is a call-site wrapper that augments another anchor. Generating a flag-gated window means loading TWO anchors: 05 (gating pattern) + the underlying window-type anchor (01/02/03/04/06). Do not load all anchors unless the user's task is comparing anchors.
 
 For detailed mode-specific instructions:
 

@@ -101,7 +101,9 @@ class ItemSlotWindow(ui.ScriptWindow):
 
         try:
             self.itemSlot = self.GetChild("ItemSlot")
-            self.GetChild("board").GetChild("TitleBar").SetCloseEvent(ui.__mem_func__(self.Close))
+            # board_with_titlebar exposes its inner titlebar via the window's
+            # GetChild("TitleBar") directly — NOT nested under GetChild("board").
+            self.GetChild("TitleBar").SetCloseEvent(ui.__mem_func__(self.Close))
         except:
             import exception
             exception.Abort("ItemSlotWindow.__LoadWindow.BindObject")
