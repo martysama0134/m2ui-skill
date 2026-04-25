@@ -398,7 +398,7 @@ for idx, name in enumerate(GROUP_NAMES):
 
 ## 3. Circular Reference Rules
 
-> **Source of truth:** `reference/event-binding.md` defines the full matrix and decision flow. The examples below are codebase-grounded reminders; they do NOT replace the matrix.
+> **Source of truth:** `skills/m2ui/reference/event-binding.md` defines the full matrix and decision flow. The examples below are codebase-grounded reminders; they do NOT replace the matrix.
 
 ### Correct
 
@@ -448,7 +448,7 @@ from _weakref import proxy
 button.SetEvent(lambda n, i=proxy(self): i.OnWhisper(n))
 ```
 
-For the *why* behind each rule, the decision flow, and the `SAFE_SetEvent` fork-compatibility check, see `reference/event-binding.md`.
+For the *why* behind each rule, the decision flow, and the `SAFE_SetEvent` fork-compatibility check, see `skills/m2ui/reference/event-binding.md`.
 
 ---
 

@@ -66,5 +66,5 @@ Vanilla Metin2 does NOT define `SAFE_SetEvent`. If absent, fall back to `ui.__me
 ## Cross-references
 
 - Anti-pattern detector: `modes/diagnose.md`
-- Full codebase examples: `reference/patterns.md` Section 3 (now points back to this file)
+- Full codebase examples: `skills/m2ui/reference/patterns.md` Section 3 (now points back to this file)
 - Pre-emit checklist item #3: `SKILL.md` Pre-Emit section
