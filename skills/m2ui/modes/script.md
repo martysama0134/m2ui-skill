@@ -21,7 +21,7 @@ Before making changes:
 - List all existing child elements (from uiscript dict or `InsertChild` calls)
 - Identify the UI style (script-backed vs code-only)
 - Check if `@ui.WindowDestroy` is present — if not, add it
-- Check if `ui.__mem_func__` is used consistently
+- Check if existing callbacks follow `reference/event-binding.md` matrix (`ui.__mem_func__`, `SAFE_SetEvent`, or proxy lambda)
 - Note any feature flags (`app.BL_*`, `app.ENABLE_*`)
 - Note existing `Initialize()` / `__Initialize()` method and what it resets
 
@@ -97,7 +97,7 @@ Based on user's request:
 - Add widget creation in `__LoadDialog()` method
 - Follow existing creation order (z-order matters — later = on top)
 - Use `SetParent()`, `SetPosition()`, `Show()`, `InsertChild()`
-- All callbacks through `ui.__mem_func__()`
+- All callbacks wrapped per `reference/event-binding.md` matrix
 
 **Adding handler methods to root class:**
 - Add method definitions in the class
