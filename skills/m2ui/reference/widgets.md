@@ -958,6 +958,67 @@ d:/ymir work/ui/pattern/gauge_green.tga
 
 ---
 
+## Runtime factories (ui.Make*)
+
+These helpers in `root/ui.py` construct fully-configured widgets in one call — alternative to declaring the widget in a uiscript dict. Use them when a window builds children programmatically (code-only style) or needs to add widgets at runtime in response to data. Both helpers call `Show()` internally — no initial `Show()` is needed. Calling `Hide()` / `Show()` later for state toggles is normal and expected.
+
+**Lifecycle / reference-keeping.** The factory's `SetParent(parent)` only registers the child at the engine level (via `wndMgr.SetParent`); it does NOT add the widget to any Python-side container. Without keeping a reference, the widget may be garbage-collected. Either store the return value on `self` (e.g., `self.icon = ui.MakeImageBox(...)`) OR append it to a Python-managed list / `parent.Children` if the parent uses one. `parent.InsertChild(name, child)` is only necessary when later code needs to look the widget up by name via `parent.GetChild(name)`.
+
+### ui.MakeImageBox(parent, name, x, y)
+
+Constructs a fully-configured `ImageBox` and returns it.
+
+- **`parent`** — owning window. Sets parent only; the helper does NOT call `parent.InsertChild(...)`. If name lookup via `parent.GetChild(name)` is needed later, register manually.
+- **`name`** — image asset path (string). Use the lowercase forward-slash convention (`d:/ymir work/ui/...`); supported formats `.tga` / `.dds` / `.sub`.
+- **`x`**, **`y`** — absolute position relative to parent.
+
+**Returns:** `ImageBox` instance, already shown.
+
+**Example:**
+
+```python
+self.checkImage = ui.MakeImageBox(self, "d:/ymir work/ui/public/check_image.sub", 8, 8)
+```
+
+Equivalent to declaring an `image` widget in a uiscript dict with `image` / `x` / `y` keys. Pick whichever style matches the surrounding window — code-only windows use the factory; script-backed windows declare in the dict.
+
+**Source:** `root/ui.py` `def MakeImageBox(parent, name, x, y)`.
+
+### ui.MakeButton(parent, x, y, tooltipText, path, up, over, down)
+
+Constructs a fully-configured `Button` and returns it.
+
+- **`parent`** — owning window. Sets parent only; no `InsertChild`.
+- **`x`**, **`y`** — absolute position relative to parent.
+- **`tooltipText`** — mandatory tooltip string (passed to `SetToolTipText`). Pass `""` to skip the tooltip visually.
+- **`path`** — directory prefix. **MUST end with `/`** — the helper concatenates `path + up` etc. with no separator. Forgetting the trailing slash produces an asset path like `"...publicbtn_01.tga"` and an asset-not-found / red-X result (see `failure-atlas.md` entry 6).
+- **`up`** / **`over`** / **`down`** — filenames for the three button-state textures. Concatenated to `path` internally to form the full asset paths.
+
+**Returns:** `Button` instance, already shown.
+
+**Important — no event argument.** This factory does NOT take an event. The caller MUST wire the click event separately, otherwise the button is decorative and silently does nothing on click (see `failure-atlas.md` entry 2 cause #3). Always follow the factory call with `SetEvent`:
+
+**Example (correct):**
+
+```python
+self.acceptBtn = ui.MakeButton(
+    self, 8, 8, localeInfo.UI_ACCEPT,
+    "d:/ymir work/ui/public/", "middle_button_01.sub", "middle_button_02.sub", "middle_button_03.sub",
+)
+self.acceptBtn.SetEvent(ui.__mem_func__(self.OnAccept))
+```
+
+**Example (wrong — missing trailing slash):**
+
+```python
+ui.MakeButton(self, 0, 0, "", "d:/ymir work/ui/public", "btn_up.tga", ...)
+# resolves to "d:/ymir work/ui/publicbtn_up.tga" — asset not found
+```
+
+**Limitations and post-creation configuration.** The factory does not accept arguments for disabled-state image, button text, or explicit size. The returned `Button` instance still supports them — call `btn.SetDisableVisual(path)`, `btn.SetText(text)`, or `btn.SetSize(w, h)` after the factory returns if needed. For all-at-once declaration, use a `button` widget in a uiscript dict instead.
+
+**Source:** `root/ui.py` `def MakeButton(parent, x, y, tooltipText, path, up, over, down)`.
+
 ## Quick Reference: Type String to Class Mapping
 
 | Type String | Python Class | Loader Method | Category |
