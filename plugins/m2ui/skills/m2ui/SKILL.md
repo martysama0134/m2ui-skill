@@ -34,16 +34,39 @@ Based on detected mode, read the corresponding mode file from `modes/` directory
 
 ## Before Generating Any Code
 
-Always load these reference files (adjacent to this SKILL.md in `reference/` directory):
+**Always load these (mandatory floor):**
 
-1. `reference/event-binding.md` — callback wrapping matrix (mandatory for every window)
-2. `reference/patterns.md` — code templates, boilerplate, best practices
-3. `reference/widgets.md` — widget type catalog with properties
-4. `reference/locale.md` — locale string format and rules
+1. `reference/mental-model.md` — deprogram web/React assumptions, ymir UI engine concepts
+2. `reference/event-binding.md` — callback wrapping matrix
 
-Read `reference/bindings.md` only when you need to verify whether a specific C++ Python function exists (e.g., user wants to call `player.GetSomeFunction()` — check if it's registered).
+**Conditional load (read only what applies to the task):**
 
-> **Note:** Phases 2 and 3 of the m2ui quality uplift will expand this into a full conditional-load decision matrix. For now, the four files above plus on-demand bindings.md are the floor.
+| You're generating... | Also load |
+|----------------------|-----------|
+| New window from scratch | The matching anchor from `reference/anchors/` (see anchor decision matrix in `reference/anchors/README.md`) |
+| Modifying an existing window | Skip anchors. Load just the existing files. |
+| Specific widget you haven't used recently | `reference/widgets.md` — jump to that widget's section |
+| Locale-heavy work (lots of new strings) | `reference/locale.md` |
+| Calling a C++ Python API (`net.X`, `player.X`, etc.) NOT already in context | `reference/bindings.md` — grep for the function |
+| Patterns reminder needed (Initialize/Destroy, scrollbar wiring, ListBoxEx, integration template) | `reference/patterns.md` — jump to the relevant section |
+| Auditing existing code for anti-patterns | Mode-specific: `modes/diagnose.md` already loaded by mode dispatch |
+
+**Anchor selection** — when generating from scratch, pick the closest anchor:
+
+| Window type | Anchor |
+|-------------|--------|
+| Modal yes/no/text dialog | `reference/anchors/01-simple-dialog.md` |
+| Board chrome + scrolling dynamic list | `reference/anchors/02-board-with-list.md` |
+| Form: list of radio-buttons + Accept | `reference/anchors/03-list-selector.md` |
+| Custom 9-slice bordered panel | `reference/anchors/04-9slice-panel.md` |
+| Window guarded by `app.ENABLE_*` flag | `reference/anchors/05-feature-gated.md` |
+| Inventory-style window with `SetItemToolTip` | `reference/anchors/06-tooltip-bound.md` |
+
+If no anchor matches exactly, pick the closest, copy its skeleton, swap the specifics. Do NOT invent layout from scratch — start from a working pattern.
+
+**Load discipline:** Read `reference/anchors/README.md` to choose the anchor, then load AT MOST ONE anchor file. Do not load all anchors unless the user's task is comparing anchors. Same applies to widgets.md/locale.md/bindings.md/patterns.md — load only the section you need, not the whole file.
+
+> **Phase 3 (future):** A failure-atlas + fork-deltas reference will expand this matrix further (symptom-first lookup, per-fork behavior).
 
 ## Output Targets
 
