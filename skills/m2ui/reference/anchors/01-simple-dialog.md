@@ -202,8 +202,11 @@ import ui
 def AskResetConfirmation(self):
     self.questionDlg = uicommon.QuestionDialog()
     self.questionDlg.SetText(localeInfo.RESET_SKILLS_QUESTION)
-    self.questionDlg.SAFE_SetAcceptEvent(ui.__mem_func__(self.OnConfirmReset))
-    self.questionDlg.SAFE_SetCancelEvent(ui.__mem_func__(self.OnCancelReset))
+    # SAFE_SetAcceptEvent/SAFE_SetCancelEvent wrap via ui.__mem_func__ INTERNALLY.
+    # Pass the bare bound method — do NOT manually wrap, that would double-wrap
+    # and either crash or create a dead callback depending on fork implementation.
+    self.questionDlg.SAFE_SetAcceptEvent(self.OnConfirmReset)
+    self.questionDlg.SAFE_SetCancelEvent(self.OnCancelReset)
     self.questionDlg.Open()
 
 def OnConfirmReset(self):
