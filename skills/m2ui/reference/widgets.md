@@ -416,7 +416,7 @@ Single-line text display.
 | `fontname` | `str` | no | Custom font name |
 | `text_horizontal_align` | `str` | no | `"left"`, `"center"`, or `"right"` |
 | `text_vertical_align` | `str` | no | `"top"`, `"center"`, or `"bottom"` |
-| `all_align` | any | no | Center both text alignment and window alignment |
+| `all_align` | any | no | **GOTCHA — re-anchors widget at parent CENTER, not parent top-left.** Sets `SetWindowHorizontalAlignCenter()` + `SetWindowVerticalAlignCenter()` (per `LoadElementText` in `root/ui.py`). The widget's `(x, y)` then represents an OFFSET from parent center, not absolute coords from parent top-left. So `{"y": 30, "all_align": "center"}` on a board of height 700 renders the text at engine-y `350 + 30 = 380`, not 30. **Do NOT use `all_align` for headers / body content positioned by absolute y.** Use `horizontal_align` + `text_horizontal_align` only when you want centering without the y re-anchor. |
 | `r`, `g`, `b` | `float` | no | Text color (0.0-1.0 each). Applied together |
 | `color` | packed color | no | Packed font color (alternative to r/g/b) |
 | `outline` | `bool` | no | If true, render text with outline |
@@ -890,9 +890,27 @@ They must be created in Python code, not in uiscript dicts.
 |---|---|---|
 | `DragButton` | `Button` | Draggable button (used by scrollbars/sliders) |
 | `NumberLine` | `Window` | Image-based number display |
-| `ComboBox` | `Window` | Dropdown select box |
+| `ComboBox` | `Window` | Dropdown select box (see caveat below) |
 | `Bar3D` | `Window` | 3D-style bar (same as SlotBar internally) |
 | `RadioButtonGroup` | `NoWindow` | Helper for radio button grouping |
+
+### ComboBox dropdown caveat (load-time consideration)
+
+`ui.ComboBox.__ArrangeListBox()` (in `root/ui.py`) ALWAYS opens the list panel at relative `(0, height + 5)` of the combo, on the `TOP_MOST` layer — i.e., directly DOWNWARD from the combo. There is no engine flag to flip it upward. The dropdown will paint over whatever sits in the next ~`item_count * line_height` pixels.
+
+Implications when designing a dense vertical form:
+
+- For two adjacent `ComboBox` rows spaced 25 px apart, opening the upper one's dropdown covers the lower one entirely.
+- Do not place a ComboBox immediately above clickable widgets the user expects to interact with while the list is open.
+
+Mitigation patterns (pick one when generating a form with multiple `ComboBox`):
+
+- **Reserve clearance.** Space rows so `next_row_y - this_combo_y >= max_item_count * 17 + 10`. For a list of 5 items this is ~95 px. Practical for forms with ≤ 3 ComboBoxes; impractical for dense settings panels.
+- **Use a popup `ListBox` triggered by a button.** A normal `button` opens a transient `ui.ListBox`-based picker positioned wherever you want (e.g., to the right, anchored upward). Replaces ComboBox entirely.
+- **Subclass `ui.ComboBox`.** Override `__ArrangeListBox` to flip the list upward when `combo.GetGlobalY() + height + listHeight > parent.GetHeight()`. Requires touching client code; one-time cost for many forms.
+- **Replace with `radio_button` group** when there are ≤ 4 options. Trades vertical space for visibility.
+
+For symptom-driven diagnosis of "dropdown covers next row", see `failure-atlas.md` entry 14.
 
 ---
 
