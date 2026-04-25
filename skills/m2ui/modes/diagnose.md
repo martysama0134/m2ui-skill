@@ -17,12 +17,14 @@ a brief explanation. Group by severity: Critical, Important, Minor.
 
 ### Memory Leaks (Critical)
 
+> **Reference:** `skills/m2ui/reference/event-binding.md` — single source of truth for callback wrapping. Acceptable wrappers: `ui.__mem_func__()`, `SAFE_SetEvent` (if fork provides it), `lambda r=proxy(self): r.X()`, or any lambda that does NOT reference `self`.
+
 - [ ] **Missing `@ui.WindowDestroy`** — `Destroy()` method exists but
   has no decorator. All child windows and dict entries won't be cleaned.
 - [ ] **Direct bound method callback** — `button.SetEvent(self.OnClick)`
-  without `ui.__mem_func__()` wrapper. Circular reference leak.
+  without any wrapper. Circular reference leak. (NOTE: `SAFE_SetEvent(self.OnClick)` IS valid — that wrapper auto-applies `ui.__mem_func__` internally. Verify the fork defines `SAFE_SetEvent` before flagging or accepting.)
 - [ ] **Lambda capturing `self`** — `lambda ...: self.Method(...)` in
-  any event setter. Same leak as direct bound method.
+  any event setter. Same leak as direct bound method. EXCEPTION: `lambda r=proxy(self): r.Method(...)` is safe.
 - [ ] **`ui.__mem_func__` inside lambda** — `lambda: ui.__mem_func__(self.X)()`
   is useless — lambda still captures `self`.
 - [ ] **Dialog stored in local variable** — `dlg = uiCommon.QuestionDialog()`
@@ -43,9 +45,11 @@ a brief explanation. Group by severity: Critical, Important, Minor.
 
 ### Event Handlers (Important)
 
-- [ ] **`OnPressEscapeKey` missing return** — must return `True` or
-  `False`. Missing return can cause crashes during child iteration.
-- [ ] **`OnMouseWheel` missing return** — same issue.
+- [ ] **`OnPressEscapeKey` missing return or returns `False`** — must return `True`
+  (always). Missing return can cause crashes during child iteration; returning
+  `False` may also cause unexpected behavior.
+- [ ] **`OnMouseWheel` missing return** — must return `True` or `False`
+  based on whether the handler consumed the wheel event.
 - [ ] **OnUpdate without Hide before net packet** — sends network
   close packet every frame while visible if distance check triggers.
 
@@ -70,6 +74,16 @@ a brief explanation. Group by severity: Critical, Important, Minor.
 - [ ] **`apply(func, args)`** — removed in Python 3.
 - [ ] **`cmp=` in sort** — removed in Python 3, use `key=`.
 - [ ] **bare `except:`** — should be `except Exception:` at minimum.
+
+### Asset & API Hallucination (Important)
+
+- [ ] **Image path not on disk** — any `d:/ymir work/ui/<path>` reference
+  that does not exist under `D:\ymir work\ui\`. Use Glob to verify.
+  Suggest replacing with `# TBD ASSET: <path> — needs creation`.
+- [ ] **Unverified C++ API call** — call to `net.X`, `player.X`, `item.X`,
+  `chr.X`, `app.X`, `wndMgr.X`, `chat.X`, or `quest.X` that is NOT
+  documented in `skills/m2ui/reference/bindings.md`. Likely fabricated.
+  Suggest stubbing with `# TODO: verify <module>.<func> exists in your fork`.
 
 ### Code Quality (Minor)
 
@@ -101,7 +115,7 @@ Present findings as a structured report:
 ## Diagnosis: uiMyWindow.py
 
 ### Critical (must fix)
-- Line 45: `button.SetEvent(self.OnClick)` — missing ui.__mem_func__() wrapper. Memory leak.
+- Line 45: `button.SetEvent(self.OnClick)` — bare bound method, no `ui.__mem_func__`/`SAFE_SetEvent`/proxy wrapper (see `reference/event-binding.md`). Memory leak.
 - Line 12: No @ui.WindowDestroy decorator on Destroy(). Children won't be cleaned up.
 
 ### Important (should fix)

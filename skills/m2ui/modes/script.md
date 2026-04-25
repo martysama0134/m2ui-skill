@@ -21,7 +21,7 @@ Before making changes:
 - List all existing child elements (from uiscript dict or `InsertChild` calls)
 - Identify the UI style (script-backed vs code-only)
 - Check if `@ui.WindowDestroy` is present — if not, add it
-- Check if `ui.__mem_func__` is used consistently
+- Check if existing callbacks follow `reference/event-binding.md` matrix (`ui.__mem_func__`, `SAFE_SetEvent`, or proxy lambda)
 - Note any feature flags (`app.BL_*`, `app.ENABLE_*`)
 - Note existing `Initialize()` / `__Initialize()` method and what it resets
 
@@ -60,7 +60,7 @@ class for it, follow this checklist:
 5. **Generate Initialize()** with a `None` entry for every interactive
    widget and dynamic data structure.
 
-6. **Wire events** for all interactive widgets:
+6. **Wire events** for all interactive widgets (use `reference/event-binding.md` matrix to pick wrapper; `ui.__mem_func__` is the default):
    - Buttons → `SetEvent(ui.__mem_func__(self.OnXxx))`
    - Editlines → hook `OnIMEUpdate` if text changes matter
    - Scrollbars → `SetScrollEvent(ui.__mem_func__(self.__OnScroll))`
@@ -97,7 +97,7 @@ Based on user's request:
 - Add widget creation in `__LoadDialog()` method
 - Follow existing creation order (z-order matters — later = on top)
 - Use `SetParent()`, `SetPosition()`, `Show()`, `InsertChild()`
-- All callbacks through `ui.__mem_func__()`
+- All callbacks wrapped per `reference/event-binding.md` matrix
 
 **Adding handler methods to root class:**
 - Add method definitions in the class
@@ -110,17 +110,16 @@ Based on user's request:
 - Append to appropriate locale file
 - Use `localeInfo.KEY` in root files, `uiScriptLocale.KEY` in uiscript dicts
 
-## Step 4: Verify Consistency
+## Step 4: Pre-Emit Self-Review
 
-After modifications:
-- All new callbacks use `ui.__mem_func__()`
-- No lambda captures `self` — pass extra args directly to event setters
-- All new instance vars added to `Initialize()` (set to None)
-- No hardcoded strings — all user-visible text through `localeInfo.*` or `uiScriptLocale.*`
-- `@ui.WindowDestroy` still present and `Destroy()` calls `Initialize()`
-- New elements have unique `"name"` values for `GetChild()`
-- `"not_pick"` flag on any new decorative elements
-- Event handlers return `True`/`False` where required (OnPressEscapeKey, OnMouseWheel)
+Before showing the user the diff OR writing any file, run the Pre-Emit Self-Review checklist defined in `skills/m2ui/SKILL.md` (the `## Pre-Emit Self-Review` section). All items apply to MODIFIED code, not just freshly generated code. Pay special attention to:
+
+- Modifications must preserve `@ui.WindowDestroy` and `Initialize()` patterns
+- New child elements need unique `"name"` values for `GetChild()`
+- New callbacks follow `reference/event-binding.md` matrix
+- New instance vars added to `Initialize()` (set to None)
+
+Revise silently and re-check until all items pass. Do NOT mention the gate to the user unless an item legitimately requires user input.
 
 ## Step 5: Show Changes
 

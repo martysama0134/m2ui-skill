@@ -33,6 +33,7 @@ Tell the user which style you chose and why. Let them override.
 ## Step 4: Generate Code
 
 Read these reference files adjacent to this mode file (in `../reference/`):
+- `reference/event-binding.md` for the callback wrapping matrix (mandatory)
 - `reference/widgets.md` for exact property names and valid values
 - `reference/patterns.md` for the appropriate style template
 - `reference/locale.md` for locale string rules
@@ -45,14 +46,18 @@ Generate:
    - `__del__` calling `ui.ScriptWindow.__del__(self)`
    - `Open()`/`Close()` pattern
    - `OnPressEscapeKey()` returning `True`
-   - `ui.__mem_func__()` for all callbacks with `self`
-   - No lambda capturing `self` — pass extra args directly to event setters
+   - All callbacks with `self` wrapped per `reference/event-binding.md` matrix (`ui.__mem_func__`, `SAFE_SetEvent` if fork provides it, or `lambda r=proxy(self): r.X()`)
+   - No bare bound methods or self-capturing lambdas — pass extra args directly to event setters
    - `"not_pick"` flag on decorative elements
    - `constInfo.intWithCommas()` for large numbers
 3. Locale string entries to append
 4. An interfacemodule.py integration snippet
 
-## Step 5: Write Files
+## Step 5: Pre-Emit Self-Review
+
+Before showing the user the generated code OR writing any file, run the Pre-Emit Self-Review checklist defined in `skills/m2ui/SKILL.md` (the `## Pre-Emit Self-Review` section). Revise silently and re-check until all items pass. Do NOT mention the gate to the user unless an item legitimately requires user input (e.g., asset doesn't exist and you need to confirm path).
+
+## Step 6: Write Files
 
 After user approves the generated code:
 1. Write uiscript to `pack/pack/uiscript/uiscript/`
