@@ -47,11 +47,11 @@ Identify all visible UI elements and map them to Metin2 widget types:
 
 ## Step 4: Generate Code
 
-Read these reference files adjacent to this mode file (in `../reference/`):
+Read these reference files (paths relative to repo root):
 - `skills/m2ui/reference/event-binding.md` for the callback wrapping matrix (mandatory)
-- `reference/widgets.md` for exact property names and valid values
-- `reference/patterns.md` for the appropriate style template
-- `reference/locale.md` for locale string rules
+- `skills/m2ui/reference/widgets.md` for exact property names and valid values
+- `skills/m2ui/reference/patterns.md` for the appropriate style template
+- `skills/m2ui/reference/locale.md` for locale string rules
 
 Generate:
 1. The uiscript file (if script-backed style) or `__LoadDialog` method (if code-only)
@@ -79,4 +79,4 @@ Show the generated code and ask:
 Iterate until user approves, then write files to:
 - uiscript: `pack/pack/uiscript/uiscript/`
 - root class: `pack/pack/root/`
-- locale: auto-detect paths per `reference/locale.md` — glob for locale files, ask user if ambiguous
+- locale: auto-detect paths per `skills/m2ui/reference/locale.md` — glob for locale files, ask user if ambiguous

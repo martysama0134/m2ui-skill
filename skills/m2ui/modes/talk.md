@@ -32,11 +32,11 @@ Tell the user which style you chose and why. Let them override.
 
 ## Step 4: Generate Code
 
-Read these reference files adjacent to this mode file (in `../reference/`):
+Read these reference files (paths relative to repo root):
 - `skills/m2ui/reference/event-binding.md` for the callback wrapping matrix (mandatory)
-- `reference/widgets.md` for exact property names and valid values
-- `reference/patterns.md` for the appropriate style template
-- `reference/locale.md` for locale string rules
+- `skills/m2ui/reference/widgets.md` for exact property names and valid values
+- `skills/m2ui/reference/patterns.md` for the appropriate style template
+- `skills/m2ui/reference/locale.md` for locale string rules
 
 Generate:
 1. The uiscript file (if script-backed) or `__LoadDialog` method (if code-only)
@@ -62,5 +62,5 @@ Before showing the user the generated code OR writing any file, run the Pre-Emit
 After user approves the generated code:
 1. Write uiscript to `pack/pack/uiscript/uiscript/`
 2. Write root class to `pack/pack/root/`
-3. Append locale entries — auto-detect paths per `reference/locale.md` (glob for locale files, ask user if ambiguous)
+3. Append locale entries — auto-detect paths per `skills/m2ui/reference/locale.md` (glob for locale files, ask user if ambiguous)
 4. Show interfacemodule.py snippet for manual integration (don't auto-modify interfacemodule.py — it's too large and complex for blind modification)

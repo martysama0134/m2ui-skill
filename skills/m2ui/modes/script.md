@@ -105,7 +105,7 @@ Based on user's request:
 - Add any new instance vars to `Initialize()` / `__Initialize()`
 
 **Adding locale strings:**
-- Read `reference/locale.md` for format rules and path auto-detection
+- Read `skills/m2ui/reference/locale.md` for format rules and path auto-detection
 - Glob for locale files, ask user if multiple locale dirs found
 - Append to appropriate locale file
 - Use `localeInfo.KEY` in root files, `uiScriptLocale.KEY` in uiscript dicts
