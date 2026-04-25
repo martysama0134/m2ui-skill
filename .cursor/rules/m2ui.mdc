@@ -20,7 +20,8 @@ Detect the appropriate mode from the user's input:
 
 Before generating any code, read the reference files in this repository for accurate widget properties, code patterns, and API bindings:
 
-- `skills/m2ui/reference/patterns.md` — code templates for both UI styles, circular reference rules, interfacemodule.py integration
+- `skills/m2ui/reference/event-binding.md` — callback wrapping matrix (mandatory for every window)
+- `skills/m2ui/reference/patterns.md` — code templates for both UI styles, interfacemodule.py integration
 - `skills/m2ui/reference/widgets.md` — all 34 widget types with dict properties and methods
 - `skills/m2ui/reference/locale.md` — locale string format, auto-detected file paths
 - `skills/m2ui/reference/bindings.md` — C++ Python module function catalog (read on demand, not upfront)
@@ -46,15 +47,39 @@ All generated code must follow these rules without exception:
 2. `Initialize()` or `__Initialize()` sets all instance vars to `None`/defaults
 3. `Destroy()` calls `Initialize()` (and `ClearDictionary()` for script-backed)
 4. `__del__` calls `ui.ScriptWindow.__del__(self)`
-5. `ui.__mem_func__()` for every callback referencing `self`
-6. Never use lambda that captures `self` — pass extra args directly to event setters
-7. `Open()`/`Close()` pattern — Open calls `Show()`, Close calls `Hide()`
-8. `OnPressEscapeKey()` must return `True`
+5. **Callback wrapping** — every callback that references `self` MUST use one of: `ui.__mem_func__()`, `SAFE_SetEvent` (if fork provides it), or `lambda r=proxy(self): r.X()`. Never bare bound methods or self-capturing lambdas. **See `skills/m2ui/reference/event-binding.md` for the full matrix and decision flow.**
+6. `Open()`/`Close()` pattern — Open calls `Show()`, Close calls `Hide()`
+7. `OnPressEscapeKey()` returns `True` (always; not `False`)
+8. `OnMouseWheel()` returns `True` or `False` based on whether it consumed the event
 9. No hardcoded user-visible strings — use `localeInfo.*` or `uiScriptLocale.*`
 10. `constInfo.intWithCommas()` for large numbers
 11. `"not_pick"` flag on decorative elements (lines, separators, backgrounds)
 12. Create widgets in back-to-front order (SetParent call order = render order)
-13. `OnPressEscapeKey` and `OnMouseWheel` must return `True`/`False`
+13. **Parent bounds clip picking** — size parents large enough to contain all interactive children
+14. **Python 2.7** target — use `//` for int division, `in` not `has_key()`, keep `xrange`. See `skills/m2ui/reference/patterns.md` Section 8 for full py2/py3 compatibility rules
+15. **Asset paths must exist** — before referencing any image path (`d:/ymir work/ui/...`), verify the file exists in `D:\ymir work\ui\` via Glob. If a new asset is needed, emit `# TBD ASSET: <path> — needs creation` instead of inventing.
+16. **Verified C++ APIs only** — before calling any function from `net`, `player`, `item`, `chr`, `app`, `wndMgr`, `chat`, `quest`, verify it exists in `skills/m2ui/reference/bindings.md`. If absent: ask the user, OR emit a stub with `# TODO: verify <module>.<func> exists in your fork`. Never invent.
+
+## Pre-Emit Self-Review
+
+Before showing generated code to the user OR writing any file, run this checklist silently. If any item fails: revise the draft and re-check. Do NOT emit user-visible output unless the gate trips and you need clarification.
+
+1. `@ui.WindowDestroy` on every `Destroy()` method
+2. All `self.X` assignments listed in `Initialize()` (or `__Initialize()`)
+3. Every callback wrapped per `skills/m2ui/reference/event-binding.md` matrix; never bare bound method or `lambda: self.X()`
+4. `OnPressEscapeKey()` returns `True`; `OnMouseWheel()` returns `True`/`False`
+5. All user-visible strings via `localeInfo.*` or `uiScriptLocale.*`
+6. All decorative elements have `"not_pick"` flag
+7. Parent bounds contain all interactive children
+8. Z-order = back-to-front SetParent order
+9. Image paths verified to exist under `D:\ymir work\ui\` via Glob (or noted as `# TBD ASSET: ...`)
+10. C++ API calls verified in `skills/m2ui/reference/bindings.md` (or noted as `# TODO: verify ...`)
+11. Python 2.7 compatibility (`//` not `/`, `in` not `has_key()`, keep `xrange`)
+12. uiscript dict filename matches the `LoadScriptFile()` arg in the root class
+13. Script-backed windows: `Destroy()` calls `ClearDictionary()`
+14. `__del__` calls `ui.ScriptWindow.__del__(self)`
+
+If checklist passes: proceed. If any item fails: revise silently.
 
 ## Output Targets
 
