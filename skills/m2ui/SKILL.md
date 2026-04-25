@@ -18,9 +18,10 @@ Detect mode from user input using this priority:
 1. **Explicit keyword**: args start with `screenshot`, `talk`, `script`, or `diagnose` → use that mode
 2. **Image attached**: user message contains an image/screenshot → screenshot mode
 3. **Diagnose request**: args say "check", "audit", "review", "diagnose", "find bugs in" → diagnose mode
-4. **File reference**: args reference a `.py` file in `uiscript/` or `root/` (e.g., `uimovechannel.py`, `MoveChannelDialog.py`) → script mode
-5. **Text description**: any other text → talk mode
-6. **No args**: bare `/m2ui` → interactive (ask user what they want to do)
+4. **Symptom report**: args contain a visible-bug phrase ("doesn't appear", "doesn't open", "doesn't work", "click does nothing", "X is broken", "looks broken", "leak", "crashes after", "stuck", "flickers") — even when a `.py` file is also referenced → load `reference/failure-atlas.md` FIRST and diagnose via the matching symptom entry, THEN proceed to script mode (if a code fix is needed) or talk mode
+5. **File reference**: args reference a `.py` file in `uiscript/` or `root/` (e.g., `uimovechannel.py`, `MoveChannelDialog.py`) → script mode
+6. **Text description**: any other text → talk mode
+7. **No args**: bare `/m2ui` → interactive (ask user what they want to do)
 
 ## Dispatch
 

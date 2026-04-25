@@ -30,7 +30,7 @@ When a user reports "X looks broken" instead of "fix this code", start here. Eac
 **Likely root causes (ranked by frequency):**
 
 1. **`Show()` never called** — Construction + `LoadScriptFile` does not display the window. Fix: call `self.Show()` from `Open()` (or wherever the window becomes visible).
-2. **Parent / ancestor is hidden** — Calling `Show()` on a child whose parent is `Hide()`'d does nothing visible. Fix: walk up via `GetParent()`; check each ancestor's `IsShow()`.
+2. **Parent / ancestor is hidden** — Calling `Show()` on a child whose parent is `Hide()`'d does nothing visible. Fix: inspect the uiscript hierarchy or the parent refs stored at `__LoadWindow` time (e.g., `self.board`, `self.descWindow`); call `IsShow()` on each ancestor directly via those stored refs.
 3. **`x`/`y` off-screen** — `SetPosition(x, y)` with negative or > screen-size coords places the window outside the viewport. Fix: call `SetCenterPosition()` or clamp via `app.GetScreenWidth()` / `app.GetScreenHeight()`.
 4. **Z-buried under another window** — A `"float"`-styled sibling drawn later covers it. Fix: ensure the window has `"style": ("float",)` (or includes `"float"` in its style tuple) in uiscript — `SetTop()` only re-orders within the float layer; non-float windows can't be raised above float ones.
 5. **`LoadScriptFile` path wrong** — Mixed-case path on a Linux server fails silently; the window has no children. Fix: lowercase the path (`uiscript/foo.py`, not `UIScript/Foo.py`); verify file exists.
@@ -48,7 +48,7 @@ When a user reports "X looks broken" instead of "fix this code", start here. Eac
 1. **Decorative parent missing `not_pick`** — A background `expanded_image` or `text` sibling drawn AFTER the button intercepts the click. Fix: add `"style": ("not_pick",)` to every decorative widget in the uiscript dict (backgrounds, separators, label text).
 2. **Button outside parent bounds** — Hit-test respects parent rect. A button at `x=300` inside a `width=200` parent gets clipped from picking. Fix: verify `button.x + button.width <= parent.width` and same for y/height.
 3. **`SetEvent` never called on a regular button** — Construction did not wire the callback. Fix: grep the root class for `<buttonName>.SetEvent(`; if missing, add `btn.SetEvent(ui.__mem_func__(self.OnX))`.
-4. **`SetCloseEvent` never called on `TitleBar` (close-button-broken case)** — When using `board_with_titlebar`, the inner titlebar's X close button does NOT auto-fire `Close()`. Root class must explicitly wire `self.GetChild("TitleBar").SetCloseEvent(ui.__mem_func__(self.Close))`. Symptom: clicking X does nothing. Fix: see anchors `04-9slice-panel.md` and `06-tooltip-bound.md` — both show the correct wiring.
+4. **`SetCloseEvent` never called (close-button-broken case)** — When using `board_with_titlebar`, the X close button does NOT auto-fire `Close()`. Root class must explicitly wire it. Two equivalent approaches both work in the engine: `self.board.SetCloseEvent(ui.__mem_func__(self.Close))` (board-level wiring — preferred per `skills/m2ui/reference/widgets.md` BoardWithTitleBar API and `skills/m2ui/modes/script.md`), OR `self.GetChild("TitleBar").SetCloseEvent(ui.__mem_func__(self.Close))` (direct titlebar access, used in anchors `04-9slice-panel.md` and `06-tooltip-bound.md`). Pick one. Symptom: clicking X does nothing.
 5. **Window hidden but listening** — `Hide()` removes from picking entirely; clicks pass to whatever is below. Fix: confirm `IsShow()` returns True at click time.
 6. **Z-order wrong (later-drawn sibling on top)** — A second decorative widget with no `not_pick` overlaps. Fix: add `not_pick` OR re-order children so interactive widgets are drawn last.
 
@@ -93,7 +93,7 @@ When a user reports "X looks broken" instead of "fix this code", start here. Eac
 **Likely root causes (ranked by frequency):**
 
 1. **Locale entry literal missing from the locale file** — When a key isn't defined for the active language, the renderer falls back to printing the key itself. Fix: grep `pack/locale/<lang>/ui/` (or your project's locale path) for the key; if absent, append `KEY\tValue` (tab-separated, no quotes).
-2. **Wrong module used (root vs uiscript)** — `localeInfo.X` belongs in root `ui*.py` files; `uiScriptLocale.X` belongs in `uiscript/*.py` dict files. Mixing them resolves to NameError on import OR returns the raw key string. Fix: in root code use `localeInfo.X`; in uiscript dicts use `uiScriptLocale.X`. See `skills/m2ui/reference/locale.md` for the universal split.
+2. **Wrong module used (root vs uiscript)** — `localeInfo.X` belongs in root `ui*.py` files; `uiScriptLocale.X` belongs in `uiscript/*.py` dict files. Mixing them raises `NameError` (module not imported in this scope) or `AttributeError` (key absent from this module's namespace) — it does NOT silently render the raw key. Fix: in root code use `localeInfo.X`; in uiscript dicts use `uiScriptLocale.X`. See `skills/m2ui/reference/locale.md` for the universal split.
 3. **Module imported but key not present in current language file** — The English file has the key, the German file doesn't. Fix: add the key to ALL locale variants you ship.
 4. **Key has a typo against the locale file** — `localeInfo.WINDOW_TITTLE` vs `WINDOW_TITLE` in the file. Fix: copy-paste the exact key from the file.
 5. **Wrong file encoding** — Locale file written as UTF-8 but client expects Windows-1252 / 1254 / 1256 etc. Renderer reads garbage and falls back to key string for some entries. Fix: see `skills/m2ui/reference/locale.md` encoding table.
@@ -124,13 +124,13 @@ When a user reports "X looks broken" instead of "fix this code", start here. Eac
 
 **Likely root causes (ranked by frequency):**
 
-1. **`SetScrollEvent` callback never updates content** — Scrollbar fires the event but the callback is empty / a stub. Fix: wire `scrollbar.SetScrollEvent(ui.__mem_func__(self.OnScroll))` and inside `OnScroll(pos)` update the visible content rows based on `pos` (a float 0.0-1.0).
+1. **`SetScrollEvent` callback never updates content** — Scrollbar fires the event but the callback is empty / a stub. Fix: wire `scrollbar.SetScrollEvent(ui.__mem_func__(self.OnScroll))`; the callback takes NO `pos` argument — read the position via `pos = self.scrollbar.GetPos()` (returns float 0.0-1.0) and recompute the visible rows from that.
 2. **`OnMouseWheel` missing `return True`** — Scrollbar hover area handles the wheel but returns None, so the engine bubbles the wheel to the parent (which scrolls something else, or nothing). Fix: `def OnMouseWheel(self, length): self.scrollbar.OnUp() if length > 0 else self.scrollbar.OnDown(); return True`.
-3. **Scrollbar `SetScrollableSize(n)` smaller than content viewport** — When the scrollable size is smaller than what's actually visible, the bar maxes out before the user reaches the end. Fix: pass actual `total_lines - visible_lines` (not just `total_lines`).
+3. **`SetMiddleBarSize` not set or set wrong** — `SetMiddleBarSize(pageScale)` controls the thumb size as a fraction of the track (e.g., `visible_lines / total_lines`). If unset, the thumb fills the track and there's nothing to drag. Fix: `scrollbar.SetMiddleBarSize(float(visible_lines) / max(1, total_lines))`.
 4. **`SetScrollStep(0)` blocks all scroll** — Step of 0 means each click moves zero distance. Fix: `scrollbar.SetScrollStep(0.1)` or `0.2` (range 0.0-1.0; smaller = finer granularity).
-5. **`firstSlotIndex` not clamped on overscroll** — User scrolls past the end and the index goes negative or beyond `total_lines`, causing an out-of-range render. Fix: `startIndex = max(0, min(scrollLines, computed_index))`.
+5. **`firstSlotIndex` not clamped on overscroll** — User scrolls past the end and the index goes negative or beyond `total_lines`, causing an out-of-range render. Fix: `startIndex = max(0, min(scrollLines, computed_index))` where `scrollLines = max(0, total_lines - visible_lines)`.
 
-**Quick check:** Add `dbg.TraceError("scroll pos: " + str(pos))` to the `OnScroll` callback. Drag the scrollbar. If the trace fires with values 0.0-1.0, wiring is correct; root cause is in the content-update logic (#1 or #5). If it doesn't fire at all, wiring is broken (#2 or #4).
+**Quick check:** Inside the `OnScroll` callback, `dbg.TraceError("scroll pos: " + str(self.scrollbar.GetPos()))`. Drag the scrollbar. If the trace fires with values 0.0-1.0, wiring is correct; root cause is in the content-update logic (#1 or #5). If it doesn't fire at all, wiring is broken (#2 or #4).
 
 **See also:** `skills/m2ui/reference/anchors/02-board-with-list.md` for the canonical scrollbar + list pattern.
 

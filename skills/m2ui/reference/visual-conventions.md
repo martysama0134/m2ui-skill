@@ -29,7 +29,7 @@ Source: typical sizes observed across multiple Metin2 packs. See `skills/m2ui/re
 - `expanded_image` with a custom background art (e.g., `cube_bg.tga`) for skinned windows
 - 9-corner composite (`boardback_mainboxlefttop.sub` + 7 friends) for fully custom chrome — see anchor `04-9slice-panel.md`
 
-**Close button.** Owned by `titlebar`. Asset is typically the `d:/ymir work/ui/public/close_button_*.sub` family — verify the exact size in your pack (commonly 11×11 or 13×13). Position at top-right of titlebar. Wire via `self.GetChild("TitleBar").SetCloseEvent(ui.__mem_func__(self.Close))` — without this explicit wiring, clicking X does nothing (see failure-atlas entry #2 cause #4).
+**Close button.** Owned by `titlebar`. Asset is typically the `d:/ymir work/ui/public/close_button_*.sub` family — verify the exact size in your pack (commonly 11×11 or 13×13). Position at top-right of titlebar. Wire via `self.board.SetCloseEvent(ui.__mem_func__(self.Close))` (board-level — preferred per `skills/m2ui/reference/widgets.md` BoardWithTitleBar API), OR `self.GetChild("TitleBar").SetCloseEvent(...)` (direct titlebar access). Both work; pick one. Without this explicit wiring, clicking X does nothing (see failure-atlas entry #2 cause #4).
 
 **Titlebar font.** Engine default — do NOT specify a custom font. The `titlebar` widget renders its title in the engine's standard sub-font.
 
