@@ -7,9 +7,10 @@ When the user asks to create, modify, or generate Metin2 client UI code, follow 
 Detect the appropriate mode from the user's input:
 
 1. **Image attached** — analyze the image and replicate it as Metin2 UI code
-2. **References an existing `.py` file** in `uiscript/` or `root/` — modify that file
-3. **Text description** — generate new UI code from the description
-4. **No clear intent** — ask the user what they want to do
+2. **Symptom report** — prompt contains a visible-bug phrase ("doesn't appear", "click does nothing", "stuck", "leak", "crashes after", "looks broken", "flickers") — even when a `.py` file is also referenced → load `skills/m2ui/reference/failure-atlas.md` FIRST and diagnose via the matching symptom entry, THEN proceed to the relevant mode
+3. **References an existing `.py` file** in `uiscript/` or `root/` — modify that file
+4. **Text description** — generate new UI code from the description
+5. **No clear intent** — ask the user what they want to do
 
 ## Reference Documentation
 
@@ -30,6 +31,8 @@ Detect the appropriate mode from the user's input:
 | Patterns reminder | `skills/m2ui/reference/patterns.md` (relevant section only) |
 | User describes a visible symptom ("X looks broken", "leak after closing") | `skills/m2ui/reference/failure-atlas.md` — load FIRST before anchors |
 | Visual style/sizing for a new window matters | `skills/m2ui/reference/visual-conventions.md` — pick archetype + chrome + palette |
+
+> **Symptom-first dispatch:** When the user reports a visible bug rather than asking for new code, load `skills/m2ui/reference/failure-atlas.md` BEFORE any anchor. Diagnose, then (if a fix means new code) load the relevant anchor.
 
 **Anchor selection** for new windows:
 
