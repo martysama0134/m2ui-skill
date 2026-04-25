@@ -50,8 +50,10 @@ All generated code must follow these rules without exception:
 10. `constInfo.intWithCommas()` for large numbers
 11. `"not_pick"` flag on decorative elements (lines, separators, backgrounds)
 12. Create widgets in back-to-front order (SetParent call order = render order)
-13. **Asset paths must exist** — before referencing any image path (`d:/ymir work/ui/...`), verify the file exists in `D:\ymir work\ui\` via Glob. If a new asset is needed, emit `# TBD ASSET: <path> — needs creation` instead of inventing.
-14. **Verified C++ APIs only** — before calling any function from `net`, `player`, `item`, `chr`, `app`, `wndMgr`, `chat`, `quest`, verify it exists in `skills/m2ui/reference/bindings.md`. If absent: ask the user, OR emit a stub with `# TODO: verify <module>.<func> exists in your fork`. Never invent.
+13. **Parent bounds clip picking** — size parents large enough to contain all interactive children
+14. **Python 2.7** target — use `//` for int division, `in` not `has_key()`, keep `xrange`. See `skills/m2ui/reference/patterns.md` Section 8 for full py2/py3 compatibility rules
+15. **Asset paths must exist** — before referencing any image path (`d:/ymir work/ui/...`), verify the file exists in `D:\ymir work\ui\` via Glob. If a new asset is needed, emit `# TBD ASSET: <path> — needs creation` instead of inventing.
+16. **Verified C++ APIs only** — before calling any function from `net`, `player`, `item`, `chr`, `app`, `wndMgr`, `chat`, `quest`, verify it exists in `skills/m2ui/reference/bindings.md`. If absent: ask the user, OR emit a stub with `# TODO: verify <module>.<func> exists in your fork`. Never invent.
 
 ## Pre-Emit Self-Review
 

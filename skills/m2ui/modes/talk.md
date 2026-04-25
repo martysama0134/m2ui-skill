@@ -45,8 +45,8 @@ Generate:
    - `__del__` calling `ui.ScriptWindow.__del__(self)`
    - `Open()`/`Close()` pattern
    - `OnPressEscapeKey()` returning `True`
-   - `ui.__mem_func__()` for all callbacks with `self`
-   - No lambda capturing `self` — pass extra args directly to event setters
+   - All callbacks with `self` wrapped per `reference/event-binding.md` matrix (`ui.__mem_func__`, `SAFE_SetEvent` if fork provides it, or `lambda r=proxy(self): r.X()`)
+   - No bare bound methods or self-capturing lambdas — pass extra args directly to event setters
    - `"not_pick"` flag on decorative elements
    - `constInfo.intWithCommas()` for large numbers
 3. Locale string entries to append

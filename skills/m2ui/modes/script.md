@@ -60,7 +60,7 @@ class for it, follow this checklist:
 5. **Generate Initialize()** with a `None` entry for every interactive
    widget and dynamic data structure.
 
-6. **Wire events** for all interactive widgets:
+6. **Wire events** for all interactive widgets (use `reference/event-binding.md` matrix to pick wrapper; `ui.__mem_func__` is the default):
    - Buttons → `SetEvent(ui.__mem_func__(self.OnXxx))`
    - Editlines → hook `OnIMEUpdate` if text changes matter
    - Scrollbars → `SetScrollEvent(ui.__mem_func__(self.__OnScroll))`

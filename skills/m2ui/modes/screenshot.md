@@ -60,7 +60,7 @@ Generate:
    - `__del__` calling `ui.ScriptWindow.__del__(self)`
    - `Open()`/`Close()` pattern
    - `OnPressEscapeKey()` returning `True`
-   - `ui.__mem_func__()` for all callbacks with `self`
+   - All callbacks with `self` wrapped per `reference/event-binding.md` matrix (`ui.__mem_func__`, `SAFE_SetEvent` if fork provides it, or `lambda r=proxy(self): r.X()`)
 3. Locale string entries to append to appropriate `locale_*_ex.txt`
 4. An interfacemodule.py integration snippet
 
