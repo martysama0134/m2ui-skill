@@ -22,6 +22,8 @@ When a user reports "X looks broken" instead of "fix this code", start here. Eac
 10. [EditLine input goes nowhere after close](#10-editline-input-goes-nowhere-after-close)
 11. [Feature flag check fails silently (gated window doesn't appear)](#11-feature-flag-check-fails-silently-gated-window-doesnt-appear)
 12. [Window opens then immediately closes](#12-window-opens-then-immediately-closes)
+13. [Header / text appears at wrong vertical position (offset from intended)](#13-header--text-appears-at-wrong-vertical-position-offset-from-intended)
+14. [ComboBox dropdown overlaps the rows below it](#14-combobox-dropdown-overlaps-the-rows-below-it)
 
 ---
 
@@ -206,6 +208,34 @@ When a user reports "X looks broken" instead of "fix this code", start here. Eac
 **Quick check:** Add `dbg.TraceError("Close called from " + traceback.format_stack()[-2])` at the top of `Close()`. The trace tells you who's calling Close immediately after Open.
 
 **See also:** `skills/m2ui/reference/anchors/01-simple-dialog.md` for canonical Open / Close flow.
+
+---
+
+## 13. "Header / text appears at wrong vertical position (offset from intended)"
+
+**Likely root causes (ranked by frequency):**
+
+1. **`all_align` set on the text widget** — `LoadElementText` treats `all_align` as a SUPER-set: it calls `SetWindowHorizontalAlignCenter()` AND `SetWindowVerticalAlignCenter()` in addition to text alignment. The widget's `(x, y)` then becomes an OFFSET from parent CENTER, not absolute coords from parent top-left. So `{"y": 30, "all_align": "center"}` on a board of height 700 renders at engine-y `350 + 30 = 380`. Two text widgets with `"y": 30` and `"y": 385` and `all_align` BOTH render off-spec — the first appears mid-board, the second renders beyond the bottom edge and is invisible. Fix: drop `all_align` from headers/body text; use `horizontal_align: "center"` + `text_horizontal_align: "center"` (both align text WITHIN the widget without re-anchoring the widget itself).
+2. **Hardcoded y collides with chrome** — text at `y < 32` inside `board_with_titlebar` may sit behind the engine-rendered titlebar. Fix: section headers under a titlebar start at `y >= 32` (titlebar height + 4 px clearance).
+3. **Parent's own `vertical_align` re-anchored the parent** — same trap one level up. Fix: walk up `self.X` parent refs and audit every `align` flag.
+4. **Computed coordinate exceeds parent height** — `y >= parent.height` makes the text invisible (clipped or off-screen). Fix: confirm `text_y + text_height <= parent.height`.
+
+**Quick check:** Temporarily comment out `"all_align"` on the suspect text widget and reload. If the text appears at the intended y, root cause is #1. If not, walk #2 → #4.
+
+**See also:** `skills/m2ui/reference/widgets.md` text section — `all_align` row contains the canonical warning. `skills/m2ui/reference/mental-model.md` Section 1 has the alignment rules.
+
+---
+
+## 14. "ComboBox dropdown overlaps the rows below it"
+
+**Likely root causes (ranked by frequency):**
+
+1. **Engine behavior — dropdown opens DOWNWARD only** — `ui.ComboBox.__ArrangeListBox()` always positions the list at relative `(0, height + 5)` of the combo, on the `TOP_MOST` layer. There is no flag to flip upward. With rows spaced 25 px and an item count of 5, the list always covers the next 1-3 rows. Not a code bug; a design constraint. Fix: pick one mitigation (a) reserve clearance via row spacing `next_row_y - this_combo_y >= max_item_count * 17 + 10`, (b) replace `ComboBox` with a popup `ListBox` triggered by a button (you control the open direction), (c) subclass `ui.ComboBox` and override `__ArrangeListBox` to flip up when near the parent's bottom edge, (d) replace with a `radio_button` group when there are ≤ 4 options.
+2. **Multiple ComboBoxes in a dense column** — row spacing was sized for the COLLAPSED combo (~17 px) without considering the expanded list. Fix: at design time, pick spacing for the WORST-case open list, OR adopt mitigation (b) above for the form as a whole.
+
+**Quick check:** Click the topmost ComboBox in the offending form. If the dropdown visually covers the next widget, root cause is #1. The behavior is reproducible — it's not a transient or focus-related bug.
+
+**See also:** `skills/m2ui/reference/widgets.md` "ComboBox dropdown caveat" subsection (load-time guidance for new forms).
 
 ---
 

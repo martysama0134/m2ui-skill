@@ -118,6 +118,8 @@ Before showing generated code to the user OR writing any file, run this checklis
 12. uiscript dict filename matches the `LoadScriptFile()` arg in the root class
 13. Script-backed windows: `Destroy()` calls `ClearDictionary()`
 14. `__del__` calls `ui.ScriptWindow.__del__(self)`
+15. **Alignment semantics resolved** — for every widget with `all_align`, `horizontal_align: "center"`, or `vertical_align: "center"`, mentally resolve the FINAL screen position. `all_align` re-anchors to PARENT CENTER (the widget's `(x, y)` becomes an offset from center, not absolute coords). Confirm the resolved position is intended. NEVER use `all_align` on a child whose y is meaningful as an absolute coord. (See `reference/widgets.md` text section + `reference/mental-model.md` Section 1.)
+16. **Computed rect within parent bounds** — for every widget, `child.x + child.width <= parent.width` AND `child.y + child.height <= parent.height` AFTER alignment is applied. Children of `board_with_titlebar` must also clear the engine titlebar (`y >= 32`).
 
 If checklist passes: proceed to emit/write. If any item fails: revise silently and re-run.
 
