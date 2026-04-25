@@ -398,11 +398,7 @@ for idx, name in enumerate(GROUP_NAMES):
 
 ## 3. Circular Reference Rules
 
-The `ui.__mem_func__` class wraps a bound method using `weakref.proxy()` on both
-the instance (`im_self`) and the function (`im_func`), breaking the reference
-cycle that would otherwise prevent garbage collection.
-
-**RULE: Any callback that references `self` MUST go through `ui.__mem_func__()`.**
+> **Source of truth:** `reference/event-binding.md` defines the full matrix and decision flow. The examples below are codebase-grounded reminders; they do NOT replace the matrix.
 
 ### Correct
 
@@ -414,8 +410,7 @@ slotGrid.SetSelectItemSlotEvent(ui.__mem_func__(self.OnSelectSlot))
 
 ### Correct -- passing extra args to event setter
 
-Some event setters accept additional positional arguments that get forwarded to
-the callback. Use this instead of lambdas when you need extra args:
+Some event setters accept additional positional arguments that get forwarded to the callback. Use this instead of lambdas when you need extra args:
 
 ```python
 radioBtn.SetEvent(ui.__mem_func__(self.OnSelectTab), idx)
@@ -428,17 +423,11 @@ slotGrid.SetOverInItemEvent(ui.__mem_func__(self.OnOverIn), 0, row)
 button.SetEvent(self.OnClick)
 ```
 
-The button holds a strong reference to the bound method, which holds a strong
-reference to `self`. Neither can be garbage collected.
-
 ### Wrong -- lambda captures self (same leak)
 
 ```python
 slot.SetOverInItemEvent(lambda trash=0, row=row: self.__OnSlot(trash, row))
 ```
-
-The lambda object captures `self` via its closure. The parent widget holds the
-lambda, creating the same reference cycle.
 
 ### Wrong -- ui.__mem_func__ inside lambda (useless)
 
@@ -446,18 +435,11 @@ lambda, creating the same reference cycle.
 slot.SetEvent(lambda: ui.__mem_func__(self.OnClick)())
 ```
 
-`ui.__mem_func__` is constructed inside the lambda, but the lambda itself still
-captures `self`. The weak reference wrapper is pointless because the strong
-reference through the lambda keeps `self` alive.
-
 ### Safe -- lambda with no self reference
 
 ```python
 button.SetEvent(lambda arg=i: standaloneFunc(arg))
 ```
-
-If the lambda does not reference `self` (or any other UI object), there is no
-reference cycle. Module-level functions and captured primitives are fine.
 
 ### Safe -- weakref proxy in lambda (advanced, rare)
 
@@ -466,9 +448,7 @@ from _weakref import proxy
 button.SetEvent(lambda n, i=proxy(self): i.OnWhisper(n))
 ```
 
-This is used in interfacemodule.py for cases where `ui.__mem_func__` cannot be
-used (e.g., the callback needs a non-method callable with specific argument
-reshaping). The `proxy()` prevents the strong reference.
+For the *why* behind each rule, the decision flow, and the `SAFE_SetEvent` fork-compatibility check, see `reference/event-binding.md`.
 
 ---
 

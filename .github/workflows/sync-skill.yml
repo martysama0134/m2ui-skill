@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - skills/m2ui/SKILL.md
+      - skills/m2ui/reference/**
+      - skills/m2ui/modes/**
       - rules/m2ui-activate.md
 
 concurrency:
@@ -27,9 +29,14 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git pull --rebase origin main
 
-      - name: Sync SKILL.md to Codex plugin
+      - name: Sync full skill subtree to Codex plugin
         run: |
-          cp skills/m2ui/SKILL.md plugins/m2ui/skills/m2ui/SKILL.md
+          # Phase 1 change: copy the entire skills/m2ui/ subtree, not just SKILL.md.
+          # The Codex plugin needs reference/, modes/, plus SKILL.md to function.
+          # Old behavior (single-file copy) preserved as comment for rollback reference:
+          #   cp skills/m2ui/SKILL.md plugins/m2ui/skills/m2ui/SKILL.md
+          mkdir -p plugins/m2ui/skills/m2ui
+          rsync -a --delete skills/m2ui/ plugins/m2ui/skills/m2ui/
 
       - name: Sync auto-activation rules
         run: |
@@ -53,7 +60,7 @@ jobs:
       - name: Commit and push if changed
         run: |
           git add \
-            plugins/m2ui/skills/m2ui/SKILL.md \
+            plugins/m2ui/skills/m2ui \
             .clinerules/m2ui.md \
             .github/copilot-instructions.md \
             .cursor/rules/m2ui.mdc \

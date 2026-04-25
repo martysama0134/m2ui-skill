@@ -34,13 +34,16 @@ Based on detected mode, read the corresponding mode file from `modes/` directory
 
 ## Before Generating Any Code
 
-Always read these reference files (adjacent to this SKILL.md in `reference/` directory):
+Always load these reference files (adjacent to this SKILL.md in `reference/` directory):
 
-1. `reference/patterns.md` — code templates, boilerplate, best practices
-2. `reference/widgets.md` — widget type catalog with properties
-3. `reference/locale.md` — locale string format and rules
+1. `reference/event-binding.md` — callback wrapping matrix (mandatory for every window)
+2. `reference/patterns.md` — code templates, boilerplate, best practices
+3. `reference/widgets.md` — widget type catalog with properties
+4. `reference/locale.md` — locale string format and rules
 
 Read `reference/bindings.md` only when you need to verify whether a specific C++ Python function exists (e.g., user wants to call `player.GetSomeFunction()` — check if it's registered).
+
+> **Note:** Phases 2 and 3 of the m2ui quality uplift will expand this into a full conditional-load decision matrix. For now, the four files above plus on-demand bindings.md are the floor.
 
 ## Output Targets
 
@@ -58,17 +61,39 @@ These rules apply to ALL generated code, in ALL modes:
 2. **`Initialize()` or `__Initialize()`** sets all instance vars to `None`/defaults
 3. **`Destroy()` calls `Initialize()`** and optionally `ClearDictionary()` (script-backed only)
 4. **`__del__`** calls `ui.ScriptWindow.__del__(self)`
-5. **`ui.__mem_func__()`** for every callback referencing `self` — no exceptions
-6. **No lambda with `self`** — pass extra args directly to event setters instead
-7. **`Open()`/`Close()`** pattern — `Open` calls `Show()`, `Close` calls `Hide()`
-8. **`OnPressEscapeKey()`** returns `True`
+5. **Callback wrapping** — every callback that references `self` MUST use one of: `ui.__mem_func__()`, `SAFE_SetEvent` (if fork provides it), or `lambda r=proxy(self): r.X()`. Never bare bound methods or self-capturing lambdas. **See `reference/event-binding.md` for the full matrix and decision flow.**
+6. **`Open()`/`Close()`** pattern — `Open` calls `Show()`, `Close` calls `Hide()`
+7. **`OnPressEscapeKey()`** returns `True` (always; not `False`)
+8. **`OnMouseWheel()`** returns `True` or `False` based on whether it consumed the event
 9. **No hardcoded strings** — all user text via `localeInfo.*` or `uiScriptLocale.*`
 10. **`constInfo.intWithCommas()`** for large numbers
 11. **`"not_pick"` flag** on decorative elements (lines, separators, background images)
 12. **Z-order**: create widgets in back-to-front order (SetParent call order = render order)
-13. **Event return values**: `OnPressEscapeKey`, `OnMouseWheel` must return `True`/`False`
-14. **Parent bounds clip picking**: size parents large enough to contain all interactive children
-15. **Python 2.7** target — use `//` for int division, `in` not `has_key()`, keep `xrange`. See `reference/patterns.md` Section 8 for full py2/py3 compatibility rules
+13. **Parent bounds clip picking**: size parents large enough to contain all interactive children
+14. **Python 2.7** target — use `//` for int division, `in` not `has_key()`, keep `xrange`. See `reference/patterns.md` Section 8 for full py2/py3 compatibility rules
+15. **Asset paths must exist** — before referencing any image path (`d:/ymir work/ui/...`), verify the file exists in `D:\ymir work\ui\` via Glob. If a new asset is needed, emit `# TBD ASSET: <path> — needs creation` instead of inventing.
+16. **Verified C++ APIs only** — before calling any function from `net`, `player`, `item`, `chr`, `app`, `wndMgr`, `chat`, `quest`, verify it exists in `reference/bindings.md`. If absent: ask the user, OR emit a stub with `# TODO: verify <module>.<func> exists in your fork`. Never invent.
+
+## Pre-Emit Self-Review
+
+Before showing generated code to the user OR writing any file, run this checklist silently. If any item fails: revise the draft and re-check. Do NOT emit user-visible output unless the gate trips and you need clarification.
+
+1. `@ui.WindowDestroy` on every `Destroy()` method
+2. All `self.X` assignments listed in `Initialize()` (or `__Initialize()`)
+3. Every callback wrapped per `reference/event-binding.md` matrix (`ui.__mem_func__`, `SAFE_SetEvent`, `lambda r=proxy(self): r.X()`, or no-self lambda); never bare bound method or `lambda: self.X()`
+4. `OnPressEscapeKey()` returns `True` (not `False`); `OnMouseWheel()` returns `True`/`False`
+5. All user-visible strings via `localeInfo.*` or `uiScriptLocale.*` (no hardcoded text)
+6. All decorative elements have `"not_pick"` flag (images, lines, bars, backgrounds)
+7. Parent bounds contain all interactive children (mouse picking respects parent rect)
+8. Z-order = back-to-front SetParent call order (later children render on top)
+9. Image paths verified to exist under `D:\ymir work\ui\` via Glob (or noted as `# TBD ASSET: ...`)
+10. C++ API calls verified in `reference/bindings.md` (or noted as `# TODO: verify ...`)
+11. Python 2.7 compatibility (`//` not `/`, `in` not `has_key()`, keep `xrange`)
+12. uiscript dict filename matches the `LoadScriptFile()` arg in the root class
+13. Script-backed windows: `Destroy()` calls `ClearDictionary()`
+14. `__del__` calls `ui.ScriptWindow.__del__(self)`
+
+If checklist passes: proceed to emit/write. If any item fails: revise silently and re-run.
 
 ## After Code Generation
 
