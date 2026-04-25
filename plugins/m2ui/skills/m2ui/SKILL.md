@@ -11,6 +11,10 @@ description: >
 
 # /m2ui — Metin2 UI Generator
 
+<SUBAGENT-STOP>
+If you were dispatched as a subagent with a specific task description, skip this skill's mode-detection flow and execute the assigned task directly. The parent agent has already loaded the relevant m2ui context and selected the mode for you. Re-running the full dispatch wastes tokens and may second-guess the parent's choice.
+</SUBAGENT-STOP>
+
 ## Mode Detection
 
 Detect mode from user input using this priority:
@@ -87,7 +91,9 @@ These rules apply to ALL generated code, in ALL modes:
 2. **`Initialize()` or `__Initialize()`** sets all instance vars to `None`/defaults
 3. **`Destroy()` calls `Initialize()`** and optionally `ClearDictionary()` (script-backed only)
 4. **`__del__`** calls `ui.ScriptWindow.__del__(self)`
-5. **Callback wrapping** — every callback that references `self` MUST use one of: `ui.__mem_func__()`, `SAFE_SetEvent` (if fork provides it), or `lambda r=proxy(self): r.X()`. Never bare bound methods or self-capturing lambdas. **See `reference/event-binding.md` for the full matrix and decision flow.**
+5. <EXTREMELY-IMPORTANT>
+   **Callback wrapping** — every callback that references `self` MUST use one of: `ui.__mem_func__()`, `SAFE_SetEvent` (if fork provides it), or `lambda r=proxy(self): r.X()`. NEVER bare bound methods (`btn.SetEvent(self.OnClick)`) or self-capturing lambdas (`btn.SetEvent(lambda: self.OnClick())`). Both leak — the button's reference to the bound method holds `self` alive past `Destroy`, and the engine never garbage-collects. This is the single most common bug in community Metin2 code. See `reference/event-binding.md` for the full matrix and decision flow.
+   </EXTREMELY-IMPORTANT>
 6. **`Open()`/`Close()`** pattern — `Open` calls `Show()`, `Close` calls `Hide()`
 7. **`OnPressEscapeKey()`** returns `True` (always; not `False`)
 8. **`OnMouseWheel()`** returns `True` or `False` based on whether it consumed the event
@@ -97,10 +103,16 @@ These rules apply to ALL generated code, in ALL modes:
 12. **Z-order**: create widgets in back-to-front order (SetParent call order = render order)
 13. **Parent bounds clip picking**: size parents large enough to contain all interactive children
 14. **Python 2.7** target — use `//` for int division, `in` not `has_key()`, keep `xrange`. See `reference/patterns.md` Section 8 for full py2/py3 compatibility rules
-15. **Asset paths must exist** — before referencing any image path (`d:/ymir work/ui/...`), verify the file exists in `D:\ymir work\ui\` via Glob. If a new asset is needed, emit `# TBD ASSET: <path> — needs creation` instead of inventing.
-16. **Verified C++ APIs only** — before calling any function from `net`, `player`, `item`, `chr`, `app`, `wndMgr`, `chat`, `quest`, verify it exists in `reference/bindings.md`. If absent: ask the user, OR emit a stub with `# TODO: verify <module>.<func> exists in your fork`. Never invent.
+<EXTREMELY-IMPORTANT>
+15. **Asset paths must exist** — before referencing any image path (`d:/ymir work/ui/...`), verify the file exists in `D:\ymir work\ui\` via Glob. If a new asset is needed, emit `# TBD ASSET: <path> — needs creation` instead of inventing. Inventing a path produces a red-X / pink-box at runtime (failure-atlas entry 6).
+16. **Verified C++ APIs only** — before calling any function from `net`, `player`, `item`, `chr`, `app`, `wndMgr`, `chat`, `quest`, verify it exists in `reference/bindings.md`. If absent: ask the user, OR emit a stub with `# TODO: verify <module>.<func> exists in your fork`. NEVER invent. Inventing a binding produces an `AttributeError` traceback at runtime, often crashing the calling window.
+</EXTREMELY-IMPORTANT>
 
 ## Pre-Emit Self-Review
+
+<EXTREMELY-IMPORTANT>
+This gate is mandatory and runs BEFORE any output to the user. Skipping it is the single biggest cause of regression reports against this skill — every previous user-reported bug (memory leaks, missing decorators, alignment surprises, off-screen widgets) traces back to a failed silent self-review. Run the full checklist on every emission, even on edits to existing files.
+</EXTREMELY-IMPORTANT>
 
 Before showing generated code to the user OR writing any file, run this checklist silently. If any item fails: revise the draft and re-check. Do NOT emit user-visible output unless the gate trips and you need clarification.
 
