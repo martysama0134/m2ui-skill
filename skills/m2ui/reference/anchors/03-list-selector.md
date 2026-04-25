@@ -154,6 +154,7 @@ class MoveChannelWindow(ui.ScriptWindow):
         self.channelButtonList = []
         self.currentChannel = 0
         self.ingameChannel = 1
+        self.IsLoaded = False
 
     @ui.WindowDestroy
     def Destroy(self):
@@ -272,7 +273,11 @@ self.wndMoveChannel = uimovechannel.MoveChannelWindow()
 
 # Public entry — opened from a menu/keybind/quest dialog:
 def OpenMoveChannelWindow(self):
-    self.wndMoveChannel.ingameChannel = net.GetCurrentChannel()  # verify exact API in bindings.md
+    # TODO: verify how the current channel is exposed in your fork.
+    # net.GetCurrentChannel() does NOT exist in vanilla. Some forks use
+    # constInfo.CHANNEL or read from the server-info dict. Replace this
+    # placeholder before shipping.
+    # self.wndMoveChannel.ingameChannel = <fork-specific lookup>
     self.wndMoveChannel.Open()
 
 # In HideAllWindows:
