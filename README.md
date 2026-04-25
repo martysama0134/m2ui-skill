@@ -78,6 +78,7 @@ Install as a Gemini extension using `gemini-extension.json` at the repo root.
 /m2ui screenshot                   Analyze an attached image, generate matching UI code
 /m2ui talk make a shop window      Describe a UI in plain language, get generated code
 /m2ui script uimovechannel.py      Modify an existing UI file
+/m2ui diagnose uixxx.py            Audit an existing UI file for memory leaks and anti-patterns
 ```
 
 ### In Other Agents
@@ -93,9 +94,10 @@ Just describe what you want in natural language. The agent will automatically re
 When no explicit mode is specified, the skill auto-detects from your input:
 
 1. **Image attached** — screenshot mode (analyze and replicate)
-2. **References a `.py` file** — script mode (modify existing)
-3. **Text description** — talk mode (generate new)
-4. **No input** — interactive mode (asks what you want)
+2. **"check"/"audit"/"diagnose"/"find bugs"** — diagnose mode (audit for anti-patterns)
+3. **References a `.py` file** — script mode (modify existing)
+4. **Text description** — talk mode (generate new)
+5. **No input** — interactive mode (asks what you want)
 
 ## What Gets Generated
 
@@ -115,16 +117,18 @@ The skill supports both Metin2 UI patterns and auto-picks based on complexity:
 
 ## Code Standards
 
-All generated code enforces these rules to prevent common Metin2 UI bugs:
+All generated code enforces these rules to prevent common Metin2 UI bugs. Before emitting any output, the agent runs a silent **Pre-Emit Self-Review** gate against this checklist (see `skills/m2ui/SKILL.md` → `## Pre-Emit Self-Review`):
 
 - **`@ui.WindowDestroy`** decorator on every `Destroy()` method — ensures proper cleanup of child windows and instance attributes
-- **`ui.__mem_func__()`** for all callbacks referencing `self` — prevents circular reference memory leaks
-- **No lambda capturing `self`** — lambdas that reference `self` leak identically to unproxied methods. Extra args are passed directly to event setters instead.
+- **Callback wrapping** — every callback referencing `self` MUST use `ui.__mem_func__()`, `SAFE_SetEvent` (if fork provides it), or `lambda r=proxy(self): r.X()`. Never bare bound methods or self-capturing lambdas. See `skills/m2ui/reference/event-binding.md` for the full matrix and decision flow.
 - **`Initialize()` / `Destroy()` / `Open()` / `Close()` / `OnPressEscapeKey()`** pattern — standard window lifecycle
+- **`OnPressEscapeKey()`** returns `True` always; **`OnMouseWheel()`** returns `True`/`False` based on whether it consumed the event
 - **Locale strings via `localeInfo` / `uiScriptLocale`** — never hardcoded, always externalized
 - **`not_pick` flag** on decorative elements — prevents click interception by backgrounds, separators, and lines
 - **`constInfo.intWithCommas()`** for large numbers — consistent number formatting
 - **Clip mask support** (`app.__BL_CLIP_MASK__`) — proper clipping for scrollable content
+- **Asset paths verified** — image paths checked against `D:\ymir work\ui\` before reference; absent assets emitted as `# TBD ASSET: ...` placeholders, not invented
+- **C++ APIs verified** — calls to `net.X` / `player.X` / etc. checked against `skills/m2ui/reference/bindings.md` before emit; absent functions emitted as `# TODO: verify ...` stubs, not fabricated
 
 ## File Structure
 
@@ -138,14 +142,16 @@ m2ui/
 ├── rules/
 │   └── m2ui-activate.md            Source of truth — synced to all tools by CI
 ├── skills/m2ui/
-│   ├── SKILL.md                    Entry point — mode detection and dispatch
+│   ├── SKILL.md                    Entry point — mode detection, Critical Rules, Pre-Emit Self-Review gate
 │   ├── modes/
 │   │   ├── screenshot.md           Screenshot interpretation workflow
 │   │   ├── talk.md                 Natural language generation workflow
-│   │   └── script.md              Existing file modification workflow
+│   │   ├── script.md               Existing file modification workflow
+│   │   └── diagnose.md             Anti-pattern audit workflow
 │   └── reference/
+│       ├── event-binding.md        Callback wrapping matrix — single source of truth for memory-safe event hookup
 │       ├── widgets.md              All 34 widget types with properties (995 lines)
-│       ├── patterns.md             Code templates and best practices (750+ lines)
+│       ├── patterns.md             Code templates and best practices (2,700+ lines)
 │       ├── bindings.md             C++ Python module catalog (1,281 lines)
 │       └── locale.md               Locale string format and rules
 ├── .cursor/rules/m2ui.mdc          Auto-synced Cursor rules
@@ -164,6 +170,7 @@ m2ui/
 
 The reference documentation in `skills/m2ui/reference/` is the core of this skill. To improve it:
 
+- **`event-binding.md`** — Update callback wrapping matrix when fork conventions change
 - **`widgets.md`** — Add missing widget properties or document new widget types
 - **`patterns.md`** — Add new code patterns or update templates
 - **`bindings.md`** — Update when new C++ Python module functions are added
