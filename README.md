@@ -26,22 +26,37 @@ All agents share the same reference documentation. The source of truth is `rules
 Paste this to your AI agent:
 
 ```
-Install the m2ui skill from https://github.com/martysama0134/m2ui-skill into my project
+Install the m2ui skill from https://github.com/martysama0134/m2ui-skill into my project. For Claude Code, register the repo as a marketplace via `/plugin marketplace add <path>` and then `/plugin install m2ui@m2ui` — the repo ships a ready-to-use `.claude-plugin/marketplace.json` so symlinking alone is NOT enough.
 ```
 
 ### Claude Code
 
-Copy or symlink this directory into your Claude Code local plugins folder:
+Claude Code does **not** auto-discover plugins under `~/.claude/plugins/local/`. Plugins must be registered via a marketplace and then installed. This repo ships a ready-to-use marketplace descriptor at `.claude-plugin/marketplace.json` so the same clone serves as both marketplace and plugin source.
+
+**Step 1 — clone the repo somewhere local:**
 
 ```bash
-# macOS / Linux
-ln -s /path/to/m2ui ~/.claude/plugins/local/m2ui
-
-# Windows (PowerShell, run as admin)
-New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\plugins\local\m2ui" -Target "C:\path\to\m2ui"
+# Anywhere on disk; the path doesn't have to be ~/.claude/plugins/local/
+git clone https://github.com/martysama0134/m2ui-skill.git /path/to/m2ui-skill
 ```
 
-Restart Claude Code or run `/reload-plugins` to activate. Verify with `/help` — you should see `/m2ui` in the slash-command list.
+**Step 2 — register the marketplace in Claude Code:**
+
+```
+/plugin marketplace add /path/to/m2ui-skill
+```
+
+**Step 3 — install the plugin from that marketplace:**
+
+```
+/plugin install m2ui@m2ui
+```
+
+(The first `m2ui` is the plugin name; the second is the marketplace name declared in `.claude-plugin/marketplace.json`.)
+
+**Step 4 — restart Claude Code** (or run `/reload-plugins`) to pick up the slash command and skill. Verify with `/help` — you should see `/m2ui` in the slash-command list.
+
+To upgrade later: `git pull` in the cloned dir + restart Claude Code. The marketplace registration persists.
 
 ### Cursor / Windsurf / Cline / Copilot
 
@@ -159,6 +174,7 @@ All generated code enforces these rules to prevent common Metin2 UI bugs. Before
 ```
 m2ui/
 ├── .claude-plugin/
+│   ├── marketplace.json            Claude Code marketplace descriptor (this repo IS a marketplace)
 │   └── plugin.json                 Claude Code plugin manifest
 ├── commands/
 │   └── m2ui.md                     /m2ui slash command (delegates to skill)
