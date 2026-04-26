@@ -73,7 +73,19 @@ Install as a Gemini extension using `gemini-extension.json` at the repo root.
 
 ### In Claude Code
 
-m2ui is a **Skill**, not a slash command. There is no `commands/` directory and `/m2ui` is **not** a registered command — typing it returns "Unknown command". The skill auto-activates via Claude Code's skill system based on context. Invoke it by mentioning `m2ui` in natural language:
+m2ui exposes both a slash command and a Skill. They reach the same engine — the slash command is a thin entry point that delegates to the skill, which does the actual work. Use whichever feels natural:
+
+**Slash command** (discoverable via `/help`):
+
+```
+/m2ui                              Interactive mode — asks what you want to do
+/m2ui screenshot                   Analyze an attached image, generate matching UI code
+/m2ui talk make a shop window      Describe a UI in plain language, get generated code
+/m2ui script uimovechannel.py      Modify an existing UI file
+/m2ui diagnose uixxx.py            Audit an existing UI file for memory leaks and anti-patterns
+```
+
+**Natural language** (the skill auto-activates from context):
 
 ```
 use m2ui to make a shop window
@@ -83,7 +95,7 @@ m2ui diagnose uixxx.py
 audit my UI files with m2ui
 ```
 
-The keywords (`m2ui`, `screenshot`, `diagnose`, plus a `.py` file reference, an attached image, or any natural-language description) drive auto-detection of the right mode (see [Auto-Detection](#auto-detection) below).
+The keywords (`m2ui`, `screenshot`, `diagnose`), plus a `.py` file reference, an attached image, or a plain text description drive auto-detection of the right mode (see [Auto-Detection](#auto-detection) below).
 
 ### In Other Agents
 
@@ -148,6 +160,8 @@ All generated code enforces these rules to prevent common Metin2 UI bugs. Before
 m2ui/
 ├── .claude-plugin/
 │   └── plugin.json                 Claude Code plugin manifest
+├── commands/
+│   └── m2ui.md                     /m2ui slash command (delegates to skill)
 ├── plugins/m2ui/
 │   └── .codex-plugin/
 │       └── plugin.json             Codex plugin manifest
