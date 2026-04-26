@@ -36,9 +36,26 @@ Need a callback for an event setter?
   │
   └─ Need to pass extra args to the callback?
         │
-        └─ Use the event setter's extra-args feature (NOT a lambda):
-              btn.SetEvent(ui.__mem_func__(self.OnSelect), idx)
-              slot.SetOverInItemEvent(ui.__mem_func__(self.OnOverIn), 0, row)
+        ├─ STEP 1: Read pack/pack/root/ui.py and find the receiver's setter.
+        │           Does it accept *args? (e.g., `def SetX(self, event, *args):`)
+        │             │
+        │             ├─ YES → Use the setter's extra-args feature:
+        │             │         btn.SetEvent(ui.__mem_func__(self.OnSelect), idx)
+        │             │
+        │             └─ NO  → The setter is 1-arg only. Pick:
+        │                       │
+        │                       ├─ AUGMENT ui.py (preferred)
+        │                       │   See reference/framework-augmentations.md
+        │                       │   Then use Pattern B normally:
+        │                       │     editline.SetTabEvent(ui.__mem_func__(self.X), arg)
+        │                       │
+        │                       └─ Pattern C fallback (when augmentation impossible)
+        │                           editline.SetTabEvent(lambda a=arg, r=proxy(self): r.X(a))
+        │
+        └─ Common 1-arg offenders (verify per-fork):
+              EditLine.SetReturnEvent / SetEscapeEvent / SetTabEvent
+              SlotWindow.SetOverInItemEvent / SetSelectItemSlotEvent /
+                         SetPressedSlotButtonEvent / etc.
 ```
 
 ## Why bare bound methods leak
