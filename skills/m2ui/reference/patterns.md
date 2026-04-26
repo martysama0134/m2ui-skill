@@ -408,14 +408,18 @@ titleBar.SetCloseEvent(ui.__mem_func__(self.Close))
 slotGrid.SetSelectItemSlotEvent(ui.__mem_func__(self.OnSelectSlot))
 ```
 
-### Correct -- passing extra args to event setter
+### Correct -- passing extra args to event setter (after verification)
 
-Some event setters accept additional positional arguments that get forwarded to the callback. Use this instead of lambdas when you need extra args:
+Some event setters accept additional positional arguments that get forwarded to the callback. **Before applying this form, verify the setter actually accepts `*args` by reading its definition in `pack/pack/root/ui.py`.** Many common setters (`EditLine.SetTabEvent`, all `SlotWindow.Set*Event`) take only `(self, event)` and will raise `TypeError: SetX() takes exactly 2 arguments` at runtime if you pass extra args.
+
+If verification passes:
 
 ```python
+# Button.SetEvent accepts *args (verified in ui.py around line 1256)
 radioBtn.SetEvent(ui.__mem_func__(self.OnSelectTab), idx)
-slotGrid.SetOverInItemEvent(ui.__mem_func__(self.OnOverIn), 0, row)
 ```
+
+If verification fails (setter is 1-arg only), see `reference/framework-augmentations.md` — augment the setter in `ui.py` to accept `*args`, or fall back to Pattern C with `proxy(self)`.
 
 ### Wrong -- direct bound method (memory leak)
 
