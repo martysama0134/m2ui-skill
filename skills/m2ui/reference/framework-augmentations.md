@@ -103,6 +103,93 @@ from _weakref import proxy
 receiver.SetX(lambda a=arg1, b=arg2, r=proxy(self): r.M(a, b))
 ```
 
+## `__mem_func__` idempotency augmentation
+
+A second framework augmentation that pairs naturally with this rule: make `ui.__mem_func__` idempotent so double-wrap is safe.
+
+### Why
+
+A common foot-gun in m2-style fork code: a "passthrough" setter forwards an event to an inner setter without transformation:
+
+```python
+def SetCloseEvent(self, event):
+    self.eventClose = event
+    self.btnClose.SetEvent(event)   # forwards as-is
+```
+
+The contract is "caller pre-wraps". When a caller does:
+
+```python
+helpwnd.SetCloseEvent(ui.__mem_func__(self.OnClose))  # already wrapped
+```
+
+things work. But when a well-meaning edit (or m2ui auto-wrap) turns the passthrough into:
+
+```python
+def SetCloseEvent(self, event):
+    self.eventClose = event
+    self.btnClose.SetEvent(ui.__mem_func__(event))   # double-wrap
+```
+
+the call site crashes at runtime:
+
+```
+AttributeError: __mem_func__ instance has no attribute 'im_func'
+```
+
+because `__mem_func__.__init__` reads `mfunc.im_func.func_code.co_argcount` — that attribute lookup is for **bound methods**, and an already-wrapped `__mem_func__` instance does not have it.
+
+### Augmentation
+
+Single early-return at the top of `__mem_func__.__init__`:
+
+```python
+class __mem_func__:
+    ...
+    def __init__(self, mfunc):
+        # Idempotent: if mfunc is already a __mem_func__ instance, reuse its
+        # stored call dispatcher. Prevents AttributeError ("__mem_func__
+        # instance has no attribute 'im_func'") when a passthrough setter
+        # wraps an already-wrapped callable.
+        if isinstance(mfunc, __mem_func__):
+            self.call = mfunc.call
+            return
+        if mfunc.im_func.func_code.co_argcount > 1:
+            self.call = __mem_func__.__arg_call__(mfunc.im_class, mfunc.im_self, mfunc.im_func)
+        else:
+            self.call = __mem_func__.__noarg_call__(mfunc.im_class, mfunc.im_self, mfunc.im_func)
+```
+
+That is the entire patch. Three lines added before the existing branch.
+
+### Effect
+
+After applying:
+
+- `ui.__mem_func__(bound_method)` — works as before (existing arity-aware path).
+- `ui.__mem_func__(ui.__mem_func__(bound_method))` — works (early-return reuses inner `.call`).
+- `ui.__mem_func__(ui.__mem_func__(ui.__mem_func__(bm)))` — also works (each layer reuses).
+
+The `__call__` dispatcher (`self.call(*arg)`) is unchanged. Any existing weakref proxy semantics preserved exactly.
+
+### When to apply this augmentation
+
+Apply it once, alongside Critical Rule 19's setter augmentations, on any `ui.py` you also touch. It pairs with — and supersedes — manual policing of "passthrough vs auto-wrap" call sites: with idempotent `__mem_func__`, both shapes are safe.
+
+### When NOT to apply
+
+- The fork's `__mem_func__` already has equivalent idempotency (grep for `isinstance(mfunc, __mem_func__)` first).
+- The user explicitly wants double-wrap to error (debugging scenario).
+
+### Companion rule for emission
+
+Even with idempotent `__mem_func__`, m2ui's emission preference is still:
+
+1. **Passthrough setter (`def SetX(self, event): self.inner.SetEvent(event)`)** — leave as passthrough; add a caller-contract comment (`# Caller must pre-wrap with ui.__mem_func__`). Do NOT auto-wrap inside the method body — the contract is clearer that way.
+2. **Auto-wrap setter (`def SetX(self, event): self.inner.SetEvent(ui.__mem_func__(event))`)** — only when the existing setter is already an auto-wrap by design (e.g., `SAFE_SetEvent`).
+
+Idempotency is a safety net, not a license to be sloppy.
+
 ## Cross-references
 
 - Critical Rule 19 in `SKILL.md`
