@@ -104,6 +104,8 @@ Before showing generated code to the user OR writing any file, run this checklis
 12. uiscript dict filename matches the `LoadScriptFile()` arg in the root class
 13. Script-backed windows: `Destroy()` calls `ClearDictionary()`
 14. `__del__` calls `ui.ScriptWindow.__del__(self)`
+15. **Destroy bodies preserved** — for every `Destroy()` where the decorator was added (rather than the method being newly created), the original body is intact. Direct method calls on owned widgets are guarded with `if self.X:`. For every helper-method call in the body (`self.__Initialize()`, `self.Initialize()`, `self._Reset()`, `self.Init()`, etc.), the helper's own body is verified — if the helper derefs widgets, the same guards apply inside the helper. Whitelisted methods (`Hide`, `ClearDictionary`, `SetTop`) need no guard. (Critical Rule 17.)
+16. **Emitted Python content is ASCII** — every new line m2ui writes or adds inside a `.py` file (code OR inline comments) contains only ASCII. No em-dash, en-dash, ellipsis, curly quotes. Carve-outs: pre-existing non-ASCII in the same file is left untouched; verbatim user-supplied content kept as-is; locale data files exempt. (Critical Rule 18.)
 
 If checklist passes: proceed. If any item fails: revise silently.
 
