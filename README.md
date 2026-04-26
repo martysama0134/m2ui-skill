@@ -41,7 +41,7 @@ ln -s /path/to/m2ui ~/.claude/plugins/local/m2ui
 New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\plugins\local\m2ui" -Target "C:\path\to\m2ui"
 ```
 
-Restart Claude Code or run `/reload-plugins` to activate. Verify with `/help` — you should see `m2ui` in the skill list.
+Restart Claude Code or run `/reload-plugins` to activate. Verify with `/help` — you should see `/m2ui` in the slash-command list.
 
 ### Cursor / Windsurf / Cline / Copilot
 
@@ -117,7 +117,7 @@ When no explicit mode is specified, the skill auto-detects from your input:
 
 ### Notes
 
-- **Restart needed after updates.** When you upgrade m2ui (pull a new version, or land a SKILL.md / metadata change), quit and relaunch Claude Code so the new skill metadata is picked up. Existing sessions keep the previously-loaded version. Verify a restart worked by checking the version in `.claude-plugin/plugin.json` against `/help` output.
+- **Restart needed after updates.** When you upgrade m2ui (pull a new version, or land a SKILL.md / `commands/` / metadata change), quit and relaunch Claude Code so the new skill, slash commands, and metadata are picked up. Existing sessions keep the previously-loaded version. Verify a restart worked by checking the version in `.claude-plugin/plugin.json` against `/help` output.
 
 - **Project scope.** The recommended Claude Code install is **global** (`~/.claude/plugins/local/m2ui` — junction on Windows, symlink on macOS/Linux), not per-project. The skill targets **client** code (`pack/pack/uiscript/`, `pack/pack/root/`); a server-only project will not auto-engage the skill unless client UI files are in scope. Other agents (Cursor / Windsurf / Cline / Copilot / Gemini) are project-scoped — copy the relevant rule files into the client project root.
 
