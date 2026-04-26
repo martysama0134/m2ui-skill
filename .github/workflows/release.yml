@@ -1,0 +1,132 @@
+name: Release new version
+
+# Manual trigger only. Bumps version in all three plugin manifests
+# (.claude-plugin/plugin.json, gemini-extension.json,
+# plugins/m2ui/.codex-plugin/plugin.json), commits, tags vX.Y.Z, pushes.
+#
+# Usage: Actions tab -> "Release new version" -> Run workflow ->
+#        enter target version (e.g. 2.7.0) -> Run.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Target version (semver, no v prefix; e.g. 2.7.0)'
+        required: true
+        type: string
+      release_notes:
+        description: 'Short release notes (markdown allowed). Used as tag annotation + GitHub Release body.'
+        required: false
+        type: string
+        default: ''
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      # Pass inputs through env (NOT direct ${{ }} in `run:` blocks) to avoid
+      # shell-injection: a malicious version like '"; rm -rf / ; #' would be
+      # interpolated into the script before bash parses it.
+      VERSION: ${{ inputs.version }}
+      NOTES: ${{ inputs.release_notes }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate version format
+        run: |
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version '$VERSION' is not semver. Expected MAJOR.MINOR.PATCH (e.g. 2.7.0)."
+            exit 1
+          fi
+
+      - name: Fail if tag already exists
+        run: |
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "::error::Tag v$VERSION already exists. Pick a different version or delete the tag first."
+            exit 1
+          fi
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Run structural tests (pre-release gate)
+        run: |
+          bash tests/run-all.sh
+
+      - name: Bump version in all plugin manifests
+        run: |
+          # python3 reads VERSION from env (not argv) so the value is treated
+          # purely as data. Avoids any shell-side parsing of the input.
+          python3 <<'PY'
+          import json, os
+          version = os.environ["VERSION"]
+          paths = [
+              ".claude-plugin/plugin.json",
+              "gemini-extension.json",
+              "plugins/m2ui/.codex-plugin/plugin.json",
+          ]
+          for p in paths:
+              with open(p, "r", encoding="utf-8") as fh:
+                  data = json.load(fh)
+              data["version"] = version
+              with open(p, "w", encoding="utf-8") as fh:
+                  json.dump(data, fh, indent=2, ensure_ascii=False)
+                  fh.write("\n")
+              print(f"bumped {p} -> {version}")
+          PY
+
+      - name: Commit, tag, atomic push
+        run: |
+          # Commit the manifest bump locally.
+          git add \
+            .claude-plugin/plugin.json \
+            gemini-extension.json \
+            plugins/m2ui/.codex-plugin/plugin.json
+          if git diff --staged --quiet; then
+            echo "::warning::No manifest changed; either already at v$VERSION or files are missing."
+            exit 0
+          fi
+          git commit -m "chore: bump version to $VERSION"
+
+          # Build tag annotation locally (env-only — no shell interpolation of $NOTES).
+          if [ -n "$NOTES" ]; then
+              python3 - <<'PY' > /tmp/tag-msg.txt
+          import os
+          version = os.environ["VERSION"]
+          notes = os.environ.get("NOTES", "")
+          print(f"v{version}\n\n{notes}")
+          PY
+              git tag -a "v$VERSION" -F /tmp/tag-msg.txt
+          else
+              git tag -a "v$VERSION" -m "v$VERSION"
+          fi
+
+          # Atomic push: either both main AND the tag land, or neither does.
+          # Prevents the race where main is bumped but the tag push later fails.
+          git push --atomic origin main "v$VERSION"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -n "$NOTES" ]; then
+              # Write notes via env-aware python so $NOTES is treated as data.
+              python3 - <<'PY' > /tmp/release-notes.md
+          import os
+          print(os.environ.get("NOTES", ""))
+          PY
+              gh release create "v$VERSION" --title "v$VERSION" --notes-file /tmp/release-notes.md
+          else
+              gh release create "v$VERSION" --title "v$VERSION" --generate-notes
+          fi

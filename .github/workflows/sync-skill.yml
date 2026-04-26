@@ -30,6 +30,13 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git pull --rebase origin main
 
+      - name: Run structural tests (pre-sync gate)
+        run: |
+          # Block sync commit if the structural smoke tests fail. A broken
+          # SKILL.md / patterns.md / failure-atlas.md will not silently
+          # propagate to Cursor / Cline / Copilot / Windsurf / Codex variants.
+          bash tests/run-all.sh
+
       - name: Sync full skill subtree to Codex plugin
         run: |
           # Phase 1 change: copy the entire skills/m2ui/ subtree, not just SKILL.md.
@@ -66,6 +73,32 @@ jobs:
           printf '%s\n' '---' 'trigger: always_on' '---' '' > .windsurf/rules/m2ui.md
           cat "$BODY" >> .windsurf/rules/m2ui.md
 
+      - name: Sync Codex marketplace descriptor
+        run: |
+          # Codex CLI discovers plugins via .agents/plugins/marketplace.json
+          # pointing at the local plugins/m2ui/ subtree. Regenerate on every
+          # sync so the descriptor stays in step with the synced subtree.
+          mkdir -p .agents/plugins
+          cat > .agents/plugins/marketplace.json <<'JSON'
+          {
+            "name": "m2ui-local",
+            "plugins": [
+              {
+                "name": "m2ui",
+                "source": {
+                  "source": "local",
+                  "path": "./plugins/m2ui"
+                },
+                "policy": {
+                  "installation": "AVAILABLE",
+                  "authentication": "ON_INSTALL"
+                },
+                "category": "Coding"
+              }
+            ]
+          }
+          JSON
+
       - name: Commit and push if changed
         run: |
           git add \
@@ -74,7 +107,8 @@ jobs:
             .clinerules/m2ui.md \
             .github/copilot-instructions.md \
             .cursor/rules/m2ui.mdc \
-            .windsurf/rules/m2ui.md
+            .windsurf/rules/m2ui.md \
+            .agents/plugins/marketplace.json
           git diff --staged --quiet && exit 0
           git commit -m "chore: sync SKILL.md copies and auto-activation rules [skip ci]"
           git push

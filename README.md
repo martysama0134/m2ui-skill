@@ -41,7 +41,7 @@ ln -s /path/to/m2ui ~/.claude/plugins/local/m2ui
 New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\plugins\local\m2ui" -Target "C:\path\to\m2ui"
 ```
 
-Restart Claude Code or run `/reload-plugins` to activate. Verify with `/help` — you should see `m2ui` in the skill list.
+Restart Claude Code or run `/reload-plugins` to activate. Verify with `/help` — you should see `/m2ui` in the slash-command list.
 
 ### Cursor / Windsurf / Cline / Copilot
 
@@ -73,6 +73,10 @@ Install as a Gemini extension using `gemini-extension.json` at the repo root.
 
 ### In Claude Code
 
+m2ui exposes both a slash command and a Skill. They reach the same engine — the slash command is a thin entry point that delegates to the skill, which does the actual work. Use whichever feels natural:
+
+**Slash command** (discoverable via `/help`):
+
 ```
 /m2ui                              Interactive mode — asks what you want to do
 /m2ui screenshot                   Analyze an attached image, generate matching UI code
@@ -80,6 +84,18 @@ Install as a Gemini extension using `gemini-extension.json` at the repo root.
 /m2ui script uimovechannel.py      Modify an existing UI file
 /m2ui diagnose uixxx.py            Audit an existing UI file for memory leaks and anti-patterns
 ```
+
+**Natural language** (the skill auto-activates from context):
+
+```
+use m2ui to make a shop window
+m2ui screenshot: <attach image>
+modify uimovechannel.py with m2ui
+m2ui diagnose uixxx.py
+audit my UI files with m2ui
+```
+
+The keywords (`m2ui`, `screenshot`, `diagnose`), plus a `.py` file reference, an attached image, or a plain text description drive auto-detection of the right mode (see [Auto-Detection](#auto-detection) below).
 
 ### In Other Agents
 
@@ -98,6 +114,14 @@ When no explicit mode is specified, the skill auto-detects from your input:
 3. **References a `.py` file** — script mode (modify existing)
 4. **Text description** — talk mode (generate new)
 5. **No input** — interactive mode (asks what you want)
+
+### Notes
+
+- **Restart needed after updates.** When you upgrade m2ui (pull a new version, or land a SKILL.md / `commands/` / metadata change), quit and relaunch Claude Code so the new skill, slash commands, and metadata are picked up. Existing sessions keep the previously-loaded version. Verify a restart worked by checking the version in `.claude-plugin/plugin.json` against `/help` output.
+
+- **Project scope.** The recommended Claude Code install is **global** (`~/.claude/plugins/local/m2ui` — junction on Windows, symlink on macOS/Linux), not per-project. The skill targets **client** code (`pack/pack/uiscript/`, `pack/pack/root/`); a server-only project will not auto-engage the skill unless client UI files are in scope. Other agents (Cursor / Windsurf / Cline / Copilot / Gemini) are project-scoped — copy the relevant rule files into the client project root.
+
+- **Subagent.** v2.5.0+ ships an optional `m2ui-pre-emit-reviewer` subagent for high-stakes generations (screenshot mode, multi-file edits, gated windows). It runs an independent audit before emission and surfaces findings without proposing fixes. See `agents/m2ui-pre-emit-reviewer.md`.
 
 ## What Gets Generated
 
@@ -136,6 +160,8 @@ All generated code enforces these rules to prevent common Metin2 UI bugs. Before
 m2ui/
 ├── .claude-plugin/
 │   └── plugin.json                 Claude Code plugin manifest
+├── commands/
+│   └── m2ui.md                     /m2ui slash command (delegates to skill)
 ├── plugins/m2ui/
 │   └── .codex-plugin/
 │       └── plugin.json             Codex plugin manifest
