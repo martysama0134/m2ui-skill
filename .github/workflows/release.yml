@@ -1,0 +1,124 @@
+name: Release new version
+
+# Manual trigger only. Bumps version in all three plugin manifests
+# (.claude-plugin/plugin.json, gemini-extension.json,
+# plugins/m2ui/.codex-plugin/plugin.json), commits, tags vX.Y.Z, pushes.
+#
+# Usage: Actions tab -> "Release new version" -> Run workflow ->
+#        enter target version (e.g. 2.7.0) -> Run.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Target version (semver, no v prefix; e.g. 2.7.0)'
+        required: true
+        type: string
+      release_notes:
+        description: 'Short release notes (markdown allowed). Used as tag annotation + GitHub Release body.'
+        required: false
+        type: string
+        default: ''
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate version format
+        run: |
+          VERSION="${{ inputs.version }}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version '$VERSION' is not semver. Expected MAJOR.MINOR.PATCH (e.g. 2.7.0)."
+            exit 1
+          fi
+
+      - name: Fail if tag already exists
+        run: |
+          VERSION="${{ inputs.version }}"
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "::error::Tag v$VERSION already exists. Pick a different version or delete the tag first."
+            exit 1
+          fi
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Run structural tests (pre-release gate)
+        run: |
+          bash tests/run-all.sh
+
+      - name: Bump version in all plugin manifests
+        run: |
+          VERSION="${{ inputs.version }}"
+          # Use python rather than sed/jq to keep formatting consistent across all three
+          # manifests and avoid subtle quote/escape issues.
+          python3 - "$VERSION" <<'PY'
+          import json, sys
+          version = sys.argv[1]
+          paths = [
+              ".claude-plugin/plugin.json",
+              "gemini-extension.json",
+              "plugins/m2ui/.codex-plugin/plugin.json",
+          ]
+          for p in paths:
+              with open(p, "r", encoding="utf-8") as fh:
+                  data = json.load(fh)
+              data["version"] = version
+              with open(p, "w", encoding="utf-8") as fh:
+                  json.dump(data, fh, indent=2, ensure_ascii=False)
+                  fh.write("\n")
+              print(f"bumped {p} -> {version}")
+          PY
+
+      - name: Commit version bump
+        run: |
+          VERSION="${{ inputs.version }}"
+          git add \
+            .claude-plugin/plugin.json \
+            gemini-extension.json \
+            plugins/m2ui/.codex-plugin/plugin.json
+          git diff --staged --quiet && {
+            echo "::warning::No manifest changed; either already at v$VERSION or files are missing."
+            exit 0
+          }
+          git commit -m "chore: bump version to $VERSION"
+          git push origin main
+
+      - name: Create annotated tag
+        run: |
+          VERSION="${{ inputs.version }}"
+          NOTES="${{ inputs.release_notes }}"
+          if [ -n "$NOTES" ]; then
+            git tag -a "v$VERSION" -m "v$VERSION
+
+          $NOTES"
+          else
+            git tag -a "v$VERSION" -m "v$VERSION"
+          fi
+          git push origin "v$VERSION"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ inputs.version }}"
+          NOTES="${{ inputs.release_notes }}"
+          if [ -n "$NOTES" ]; then
+            printf '%s\n' "$NOTES" > /tmp/release-notes.md
+            gh release create "v$VERSION" --title "v$VERSION" --notes-file /tmp/release-notes.md
+          else
+            gh release create "v$VERSION" --title "v$VERSION" --generate-notes
+          fi
