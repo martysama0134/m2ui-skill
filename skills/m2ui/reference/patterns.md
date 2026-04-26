@@ -701,6 +701,48 @@ your window's widgets. But forgetting them causes subtle bugs:
 - Mouse wheel events route to wrong window
 - Owned dialog's weak refs die but dialog stays visible
 
+### 5.11 Decorating an existing Destroy — preserve body, guard method calls
+
+When an existing `Destroy(self)` method is missing `@ui.WindowDestroy`, add the decorator but keep the body. WOC pre-clean nulls non-whitelisted instance attrs BEFORE the body runs. Adapt method calls; leave assignments alone.
+
+**Before** (no decorator, manual cleanup):
+
+```python
+def Destroy(self):
+    self.confirmDialog.ClearDictionary()
+    self.acceptButton.SetEvent(0)
+    self.cancelButton.SetEvent(0)
+    self.confirmDialog = 0
+    self.acceptButton = 0
+    self.cancelButton = 0
+    self.__Initialize()
+```
+
+**After** (decorated, body preserved, method calls guarded):
+
+```python
+@ui.WindowDestroy
+def Destroy(self):
+    if self.confirmDialog:
+        self.confirmDialog.ClearDictionary()
+    if self.acceptButton:
+        self.acceptButton.SetEvent(0)
+    if self.cancelButton:
+        self.cancelButton.SetEvent(0)
+    self.confirmDialog = 0
+    self.acceptButton = 0
+    self.cancelButton = 0
+    self.__Initialize()
+```
+
+Why: WOC sets `self.confirmDialog`, `self.acceptButton`, `self.cancelButton` to `None` before this body runs (they are non-whitelisted instance attrs). Without guards, every method call raises `AttributeError`. Pure assignments (`self.X = 0`) remain safe.
+
+**Helper calls:** `self.__Initialize()`, `self.Initialize()`, `self._Reset()`, `self.Init()`, or any custom-named reset helper called from the Destroy body must itself be inspected. If the helper's body only assigns simple defaults (`self.X = None`, `0`, `[]`, `{}`) and has no widget derefs or method calls on owned widgets, it is safe and stays as-is. If the helper derefs owned widgets (e.g. calls `self.X.Hide()` inside it), the same `if self.X:` guards apply inside the helper — or the risky calls move to `Close()`. Don't assume safety from the name alone.
+
+Whitelisted attrs that survive WOC and never need guarding: `hWnd`, `parentWindow`, `Children`, `ElementDictionary`, `windowName`, `WocIsDestroyed`, `WocIsCleaned`. Therefore `self.Hide()` (uses `hWnd`) and `self.ClearDictionary()` (uses `ElementDictionary`) need no guard.
+
+When a body has only widget-method calls and they cannot be safely guarded (or the call sequence depends on widget state mid-destruction), relocate them to `Close()` instead. See Section 5.9 (Window lifecycle summary) and Section 5.10 (Close() cleanup checklist) for the Close-vs-Destroy split. Section 4.7 is a different pattern (parent calling `Destroy()` on an owned child during integration cleanup) and is not the right reference here.
+
 ---
 
 ## 6. Clip Mask (Scrollable Content Clipping)
