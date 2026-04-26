@@ -88,6 +88,8 @@ All generated code must follow these rules without exception:
 14. **Python 2.7** target — use `//` for int division, `in` not `has_key()`, keep `xrange`. See `skills/m2ui/reference/patterns.md` Section 8 for full py2/py3 compatibility rules
 15. **Asset paths must exist** — before referencing any image path (`d:/ymir work/ui/...`), verify the file exists in `D:\ymir work\ui\` via Glob. If a new asset is needed, emit `# TBD ASSET: <path> — needs creation` instead of inventing.
 16. **Verified C++ APIs only** — before calling any function from `net`, `player`, `item`, `chr`, `app`, `wndMgr`, `chat`, `quest`, verify it exists in `skills/m2ui/reference/bindings.md`. If absent: ask the user, OR emit a stub with `# TODO: verify <module>.<func> exists in your fork`. Never invent.
+17. **Preserve existing Destroy bodies when adding `@ui.WindowDestroy`** — when adding the decorator to a method that is already present, do NOT strip the body. Pure assignments (`self.X = None`, `self.X = 0`) are safe and idempotent post-WOC. Direct method calls on owned widgets in the body MUST be wrapped with `if self.X:` because WOC nulls those attrs before the body runs. Helper calls (`self.__Initialize()`, `self.Initialize()`, `self._Reset()`, `self.Init()`, or any custom name) must be inspected: safe if the helper body only assigns simple defaults (`None`, `0`, `[]`, `{}`) with no widget derefs; otherwise apply the same `if self.X:` guards inside the helper or relocate to `Close()`. Whitelist exception: `self.Hide()`, `self.ClearDictionary()`, `self.SetTop()` etc. operate on WOC-whitelisted attrs and need no guard. See `skills/m2ui/reference/patterns.md` Section 5.11.
+18. **ASCII-only in emitted Python code and comments** — when m2ui writes or modifies a `.py` file, the new content uses ASCII only. No em-dash (`—`), en-dash (`–`), ellipsis (`…`), curly quotes (`''""`). Use `-`, `--`, `...`, `'`, `"`. Pre-existing non-ASCII in the file is left untouched; verbatim user-supplied content is preserved as-is; locale data files are exempt (handled by `skills/m2ui/reference/locale.md`). Reason: client builds use cp1252/cp949 source encodings; ASCII is the safe common subset for code and inline comments.
 
 ## Pre-Emit Self-Review
 
@@ -107,6 +109,8 @@ Before showing generated code to the user OR writing any file, run this checklis
 12. uiscript dict filename matches the `LoadScriptFile()` arg in the root class
 13. Script-backed windows: `Destroy()` calls `ClearDictionary()`
 14. `__del__` calls `ui.ScriptWindow.__del__(self)`
+15. **Destroy bodies preserved** — for every `Destroy()` where the decorator was added (rather than the method being newly created), the original body is intact. Direct method calls on owned widgets are guarded with `if self.X:`. For every helper-method call in the body (`self.__Initialize()`, `self.Initialize()`, `self._Reset()`, `self.Init()`, etc.), the helper's own body is verified — if the helper derefs widgets, the same guards apply inside the helper. Whitelisted methods (`Hide`, `ClearDictionary`, `SetTop`) need no guard. (Critical Rule 17.)
+16. **Emitted Python content is ASCII** — every new line m2ui writes or adds inside a `.py` file (code OR inline comments) contains only ASCII. No em-dash, en-dash, ellipsis, curly quotes. Carve-outs: pre-existing non-ASCII in the same file is left untouched; verbatim user-supplied content kept as-is; locale data files exempt. (Critical Rule 18.)
 
 If checklist passes: proceed. If any item fails: revise silently.
 
