@@ -1,0 +1,18 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "m2ui",
+  "description": "Metin2 UI code generator skill — create and modify client UI from screenshots, descriptions, or existing scripts.",
+  "owner": {
+    "name": "martysama0134",
+    "url": "https://github.com/martysama0134"
+  },
+  "plugins": [
+    {
+      "name": "m2ui",
+      "description": "Metin2 UI code generator — create and modify client UI from screenshots, descriptions, or existing scripts",
+      "source": "./",
+      "category": "development",
+      "homepage": "https://github.com/martysama0134/m2ui-skill"
+    }
+  ]
+}
