@@ -33,6 +33,12 @@ a brief explanation. Group by severity: Critical, Important, Minor.
   callback uses `lambda k=key: self.Method(k)` instead of
   `lambda k=key, r=proxy(self): r.Method(k)`.
 
+### Callback Binding Crashes (Critical)
+
+> **Reference:** `skills/m2ui/reference/framework-augmentations.md` — when a setter does not accept `*args`, augment `ui.py` rather than degrade to a proxy lambda.
+
+- [ ] **Pattern B applied to non-`*args` setter** — `receiver.SetX(ui.__mem_func__(self.M), arg, ...)` where the setter in `pack/pack/root/ui.py` is `def SetX(self, event):` (1-arg only). Runtime crash with `TypeError: SetX() takes exactly 2 arguments (N given)` the first time the binding executes. Fix: augment the setter in `ui.py` to accept `*args` and dispatch them at the handler (preserving native dispatch args; see `reference/framework-augmentations.md`) OR rewrite the call site as Pattern C with `proxy(self)`. Common offenders in canonical ui.py: `EditLine.SetReturnEvent`/`SetEscapeEvent`/`SetTabEvent`, `SlotWindow.SetOverInItemEvent`/`SetSelectItemSlotEvent`/`SetUnselectItemSlotEvent`/`SetPressedSlotButtonEvent`/`SetUseSlotEvent`/`SetSelectEmptySlotEvent`/`SetUnselectEmptySlotEvent`/`SetOverOutItemEvent`. Verify per-fork.
+
 ### Missing Cleanup (Critical)
 
 - [ ] **No `Initialize()` method** — instance vars not reset on destroy.
