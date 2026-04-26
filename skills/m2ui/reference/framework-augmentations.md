@@ -192,7 +192,10 @@ Idempotency is a safety net, not a license to be sloppy.
 
 ## Cross-references
 
-- Critical Rule 19 in `SKILL.md`
-- Pre-Emit checklist item 19 in `SKILL.md`
-- Decision tree in `reference/event-binding.md`
-- Diagnose finding in `modes/diagnose.md` (Callback Binding Crashes section)
+- Critical Rule 19 in `skills/m2ui/SKILL.md`
+- Pre-Emit checklist item 19 in `skills/m2ui/SKILL.md`
+- Slim mirror in `rules/m2ui-activate.md` (Critical Rule 19 + Pre-Emit item 17)
+- Decision tree in `skills/m2ui/reference/event-binding.md`
+- Pattern reference in `skills/m2ui/reference/patterns.md` Section 3 (verification-first extra-args example)
+- Diagnose finding in `skills/m2ui/modes/diagnose.md` (Callback Binding Crashes section)
+- Smoke test assertion in `tests/test-mode-dispatch.sh` (`EXTREMELY-IMPORTANT` block count)
