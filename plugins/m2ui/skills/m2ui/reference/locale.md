@@ -58,6 +58,7 @@ The Metin2 client uses Windows code pages, not UTF-8. When writing locale files,
 | Greek | `gr` | Windows-1253 |
 | Hungarian | `hu` | Windows-1250 |
 | Italian | `it` | Windows-1252 |
+| Korean | `kr` | cp949 |
 | Dutch | `nl` | Windows-1252 |
 | Polish | `pl` | Windows-1250 |
 | Portuguese | `pt` | Windows-1252 |
