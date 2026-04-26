@@ -57,11 +57,12 @@ assert_ge "Symptom report branch" "1" "$symptom"
 subagent_stop=$(grep -c "SUBAGENT-STOP" "$SKILL")
 assert_eq "SUBAGENT-STOP tag count" "2" "$subagent_stop"
 
-# 6. EXTREMELY-IMPORTANT blocks: 4 blocks = 8 tag occurrences
+# 6. EXTREMELY-IMPORTANT blocks: 5 blocks = 10 tag occurrences
 #    (3 original blocks from v2.4.0: callback wrapping, asset paths, verified APIs;
-#     1 added by Critical Rule 17: preserve Destroy bodies)
+#     1 added by Critical Rule 17: preserve Destroy bodies;
+#     1 added by Critical Rule 19: verify setter accepts *args)
 emphasis_tags=$(grep -c "EXTREMELY-IMPORTANT" "$SKILL")
-assert_eq "EXTREMELY-IMPORTANT tag count (4 blocks * 2 tags)" "8" "$emphasis_tags"
+assert_eq "EXTREMELY-IMPORTANT tag count (5 blocks * 2 tags)" "10" "$emphasis_tags"
 
 # 7. Conditional-load matrix has the 8 expected rows (incl. failure-atlas + visual-conventions added v2.3.0)
 # Find the "Conditional load" marker, then the table separator |---, then count rows until blank.
