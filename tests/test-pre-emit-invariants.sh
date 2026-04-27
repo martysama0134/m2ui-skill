@@ -64,7 +64,7 @@ assert_ge "Atlas See also count (slack=2)" "$expected_see_alsos" "$see_alsos"
 
 # 5. Six anchors present
 anchors_dir="${REPO_ROOT}/skills/m2ui/reference/anchors"
-for n in 01 02 03 04 05 06 07 08 09 10 11 12; do
+for n in 01 02 03 04 05 06 07 08 09 10 11 12 13; do
     found=$(ls "${anchors_dir}/" 2>/dev/null | grep -c "^${n}-" || echo 0)
     assert_eq "Anchor ${n} present" "1" "$found"
 done
