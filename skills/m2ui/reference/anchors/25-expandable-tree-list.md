@@ -118,8 +118,16 @@ class CategoryHeader(ui.Window):
     def SetTitle(self, text):
         self.titleText.SetText(text)
 
-    def AddLeaf(self, text, clickCallback):
-        leaf = ExpandableLeaf(self, len(self.leaves), text, clickCallback)
+    def AddLeaf(self, text, ownerProxy, methodName):
+        """Bind a leaf click to ownerProxy.<methodName>(leafIndex).
+
+        ownerProxy MUST be a `weakref.proxy(owner)`; do NOT pass a bound
+        method (`owner.OnLeafClick`). Bound methods strongly retain owner;
+        the leaf would survive owner GC and leak (event-binding.md
+        Pattern C). Method-name lookup keeps the leaf decoupled from
+        owner's lifecycle.
+        """
+        leaf = ExpandableLeaf(self, len(self.leaves), text, ownerProxy, methodName)
         leaf.SetPosition(16, HEADER_HEIGHT + len(self.leaves) * LEAF_HEIGHT)
         self.leaves.append(leaf)
         if not self.expanded:
@@ -158,7 +166,7 @@ class CategoryHeader(ui.Window):
 class ExpandableLeaf(ui.Window):
     """One leaf row inside a CategoryHeader."""
 
-    def __init__(self, header, index, text, clickCallback):
+    def __init__(self, header, index, text, ownerProxy, methodName):
         ui.Window.__init__(self)
         self.SetParent(header)
         self.index = index
@@ -169,10 +177,13 @@ class ExpandableLeaf(ui.Window):
         self.button.SetPosition(0, 0)
         self.button.SetSize(556, LEAF_HEIGHT)
         self.button.SetText(text)
-        # Pattern C: bind to a proxy of the header + captured callback so
-        # the leaf does not store a strong bound method back to header.
+        # Pattern C: capture proxy + method name -- never bound methods.
+        # owner can be GC'd without keeping the leaf alive (and vice-
+        # versa); proxy access raises ReferenceError on dead owner so the
+        # guard short-circuits.
         self.button.SetEvent(
-            lambda r=proxy(header), idx=index, cb=clickCallback: cb(idx) if cb is not None else None
+            lambda r=ownerProxy, m=methodName, idx=index:
+                getattr(r, m)(idx) if r is not None and hasattr(r, m) else None
         )
         self.button.Show()
 
@@ -213,6 +224,7 @@ class ExpandableTreeList(ui.ScriptWindow):
             scrollBarChild = self.GetChild("scroll_bar_anchor")
             self.scrollBar = ui.ScrollBar()
             self.scrollBar.SetParent(scrollBarChild)
+            self.scrollBar.SetScrollBarSize(scrollBarChild.GetHeight())
             self.scrollBar.SetScrollEvent(ui.__mem_func__(self.OnScroll))
             self.scrollBar.Show()
         except:
@@ -279,7 +291,10 @@ class ExpandableTreeList(ui.ScriptWindow):
     def __RefreshScrollRange(self):
         # Configure the scroll bar's middle-bar size based on the visible
         # height vs total content height. SetMiddleBarSize(1.0) means the
-        # bar fills the track (no scroll needed).
+        # bar fills the track (no scroll needed). When collapsing from a
+        # scrolled state into "no scroll needed", reset pos to 0 and
+        # reflow categories from y=0; otherwise the visible offset stays
+        # negative with no usable scrollbar to recover.
         if self.scrollBar is None or self.contentBoard is None:
             return
         visible = self.contentBoard.GetHeight()
@@ -287,6 +302,20 @@ class ExpandableTreeList(ui.ScriptWindow):
             self.scrollBar.SetMiddleBarSize(float(visible) / float(self.totalContentHeight))
         else:
             self.scrollBar.SetMiddleBarSize(1.0)
+            self.scrollBar.SetPos(0.0)
+            self.__ReflowCategories(0)
+
+    def __ReflowCategories(self, scrollOffset):
+        # Re-place every category in document order starting at scrollOffset.
+        # NotifySizeChange's delta-shift is faster for incremental moves,
+        # but reflowing the whole list is the safe fallback when state
+        # invariants need to be restored (initial place, post-collapse
+        # reset, post-scroll repaint).
+        cumulativeY = scrollOffset
+        for cat in self.categories:
+            (x, _) = cat.GetLocalPosition()
+            cat.SetPosition(x, cumulativeY)
+            cumulativeY += cat.GetHeight() + CATEGORY_PADDING
 
     def OnScroll(self):
         # Translate scrollBar.GetPos() (0..1) into a vertical offset for
@@ -298,11 +327,7 @@ class ExpandableTreeList(ui.ScriptWindow):
             return
         pos = self.scrollBar.GetPos()
         scrollOffset = -int(pos * (self.totalContentHeight - self.contentBoard.GetHeight()))
-        cumulativeY = scrollOffset
-        for cat in self.categories:
-            (x, _) = cat.GetLocalPosition()
-            cat.SetPosition(x, cumulativeY)
-            cumulativeY += cat.GetHeight() + CATEGORY_PADDING
+        self.__ReflowCategories(scrollOffset)
 ```
 
 ## Locale entries
@@ -316,34 +341,41 @@ TREE_LIST_NO_DATA               No entries.
 
 ```python
 import uiexpandabletreelist
+from _weakref import proxy
 
 self.wndTreeList = None  # lazy-built
 
 def ToggleTreeList(self):
     if self.wndTreeList is None:
         self.wndTreeList = uiexpandabletreelist.ExpandableTreeList()
+        # AddLeaf takes (text, ownerProxy, methodName) -- never a bound
+        # method. Bound methods strongly retain owner; proxy + name keeps
+        # the leaf decoupled from owner's lifecycle (Pattern C).
         # Populate categories at build time OR via a Refresh() call after
         # server data arrives. Categories persist across Open/Close.
+        ownerProxy = proxy(self)
         catA = self.wndTreeList.AddCategory("Category A")
-        catA.AddLeaf("Leaf A1", self.OnLeafClick)
-        catA.AddLeaf("Leaf A2", self.OnLeafClick)
+        catA.AddLeaf("Leaf A1", ownerProxy, "OnLeafClick")
+        catA.AddLeaf("Leaf A2", ownerProxy, "OnLeafClick")
         catB = self.wndTreeList.AddCategory("Category B")
-        catB.AddLeaf("Leaf B1", self.OnLeafClick)
+        catB.AddLeaf("Leaf B1", ownerProxy, "OnLeafClick")
     if self.wndTreeList.IsShow():
         self.wndTreeList.Close()
     else:
         self.wndTreeList.Open()
 
 def OnLeafClick(self, leafIndex):
-    # Dispatch on (category, leaf) -- in a real consumer the callback is
-    # bound at AddLeaf time to capture the (catKey, leafKey) tuple.
+    # Dispatch on (category, leaf). For a real consumer that needs
+    # (catKey, leafKey) instead of a flat index, route by registering
+    # one wrapper-method per category and capturing catKey via methodName
+    # ("OnLeafClickCategoryA", etc.).
     pass
 ```
 
 ## Common variations
 
 1. **Icon per row** -- prefix header / leaf with a `ui.ImageBox`; reduce the button width by the icon width and offset the title text.
-2. **Click leaf -> custom callback** -- canonical; covered by the anchor body via `AddLeaf(text, clickCallback)`. Each leaf captures its callback in the `lambda` closure.
+2. **Click leaf -> custom callback** -- canonical; covered by the anchor body via `AddLeaf(text, ownerProxy, methodName)`. Leaf captures the proxy + name pair, not a bound method.
 3. **Pre-expanded categories** -- after `AddLeaf` for a category, call `header.Expand()` to start expanded. Useful when one category should be open by default.
 4. **Gated leaves (greyed / disabled)** -- guard inside the leaf callback (early-return if disabled), or set `leaf.button.Disable()` after `AddLeaf` returns. Disabled leaves still render but no longer dispatch.
 5. **Sticky-scroll on expand** -- replace `OnScroll` with a baseline-tracker: store the scroll position before `Expand` / `Collapse` and re-apply after `NotifySizeChange` so the user does not see the list jump.
@@ -353,6 +385,6 @@ def OnLeafClick(self, leafIndex):
 
 - **N-level recursion attempt without a manual layout pass** -- ymir UI has no reflow. Each level adds a propagation hop that must update every ancestor's `totalContentHeight` AND each subsequent sibling's position. A missed step yields overlapping rows or stale click rects. Stay 2-level unless your data demands deeper.
 - **Storing `self.parent` directly instead of an explicit `layoutParent` reference** -- couples the header to whichever parent happens to be set at construction. If the container is wrapped (e.g., placed inside a thinboard child), `self.parent` no longer points to the container that owns `NotifySizeChange`. The anchor uses an explicit `layoutParent` proxy passed at construction.
-- **Bare bound methods on header / leaf click handlers** -- `btn.SetEvent(self.Toggle)` leaks `self`. Use `ui.__mem_func__()` (header) or a `lambda r=proxy(header), ...` capturing pattern (leaf) per Critical Rule 5 + `event-binding.md`.
+- **Bare bound methods on header / leaf click handlers** -- `btn.SetEvent(self.Toggle)` leaks `self`. Use `ui.__mem_func__()` (header) or the proxy + method-name pattern (leaf, see `AddLeaf` body) per Critical Rule 5 + `event-binding.md`. Passing a bound method (`AddLeaf("...", self.OnLeafClick)`) re-introduces the strong-ref leak the anchor was designed to avoid.
 - **Stale layout / refs after Collapse if `NotifySizeChange` isn't propagated** -- categories below the collapsed one stay at the old (expanded) y-position; clicks fall on stale rects above. The container's `NotifySizeChange` MUST run on every Expand AND every Collapse.
 - **Iterating `self.categories` and clearing the list without `Destroy()` on each** -- generic owned-widget-list cleanup leak (failure-atlas entry 29 family). Each category owns leaves + tooltips + child handlers; the container's `Destroy()` MUST loop and call `cat.Destroy()` before assigning `self.categories = []`.

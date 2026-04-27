@@ -442,7 +442,7 @@ When a user reports "X looks broken" instead of "fix this code", start here. Eac
 2. **Hidden pages treated as cleaned-up pages** -- `Hide()` only removes rendering / interaction; it does not remove the page from the parent widget tree.
 3. **Page-owned children / callbacks keep the orphan alive** -- tooltips, slot callbacks, or child dialogs created by the page are not torn down because the page `Destroy()` never runs.
 
-**Quick check:** Navigate A -> B -> C, back to A, then open D repeatedly. Trace `len(self.windowHistory)` plus `wndMgr.GetWidgetCount()` (or fork equivalent). If history length stays bounded but widget count grows, root cause is #1.
+**Quick check:** Navigate A -> B -> C, back to A, then open D repeatedly. Trace `len(self.windowHistory)` plus a fork-provided widget-count helper (typical name: `wndMgr.GetWidgetCount` -- not part of the stock binding set documented in `reference/bindings.md`; verify it exists in your fork before relying on it). If history length stays bounded but widget count grows, root cause is #1.
 
 **See also:** `skills/m2ui/reference/anchors/24-page-history-browser.md`; failure-atlas entry 3 (callback leaks); entries 9 / 28 (tooltip cleanup).
 

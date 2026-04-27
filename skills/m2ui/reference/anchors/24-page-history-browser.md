@@ -110,10 +110,13 @@ class DetailPageBase(ui.Window):
     """Base class for a detail page hosted by PageHistoryBrowser.
 
     Subclasses MUST override OpenWindow() (called when navigation lands on
-    the page) and MAY override Destroy() to tear down page-owned children
-    (tooltips, child dialogs, sub-windows). The base class provides a
-    decorated Destroy() that subclasses extend; do NOT redefine the
-    decorator.
+    the page) and MAY override _DestroyPage() to tear down page-owned
+    children (tooltips, child dialogs, sub-windows).
+
+    Subclasses MUST NOT override Destroy() directly: doing so replaces the
+    decorated base method and strips @ui.WindowDestroy, which violates
+    Critical Rule 1 (preserved Destroy body). Override the _DestroyPage()
+    hook instead.
     """
 
     def __init__(self, browser):
@@ -131,9 +134,14 @@ class DetailPageBase(ui.Window):
 
     @ui.WindowDestroy
     def Destroy(self):
-        # Subclasses extend this body to destroy page-owned children before
-        # super-Destroy runs. The base implementation is empty; widget tree
-        # teardown happens via WOC.
+        # Decorated tear-down. Calls the subclass hook; subclasses do NOT
+        # override Destroy() (would strip the decorator).
+        self._DestroyPage()
+
+    def _DestroyPage(self):
+        # Subclasses override to destroy page-owned children (tooltips,
+        # child dialogs, sub-windows) before WOC tears the widget tree.
+        # Default: nothing to tear down beyond what WOC handles.
         pass
 
 
@@ -236,11 +244,23 @@ class PageHistoryBrowser(ui.ScriptWindow):
         """Open a new detail page. `pageFactory` is a callable that takes
         this browser instance and returns a DetailPageBase subclass.
 
-        If navigating from middle of history, truncates forward (calling
-        Destroy() on each dropped page -- atlas 29 mitigation).
+        Truncates forward history with Destroy() on each dropped page
+        (atlas 29 mitigation). Two cases:
+        - currSelected == -1 (landing): destroy ALL existing history
+          before appending. Stale entries can exist if the consumer
+          manipulated state externally; this branch keeps the invariant
+          "after OpenDetailPage from landing, history holds exactly one
+          page" without trusting external callers.
+        - currSelected >= 0: destroy only forward entries (idx > current).
         """
-        # Truncate forward history if navigating from middle.
-        if self.currSelected >= 0 and (self.currSelected + 1) < len(self.windowHistory):
+        if self.currSelected == -1:
+            # Coming from landing -- destroy any stale history before adding.
+            for dropped in self.windowHistory:
+                if dropped is not None:
+                    dropped.Destroy()
+            del self.windowHistory[:]
+        elif (self.currSelected + 1) < len(self.windowHistory):
+            # Truncate forward history if navigating from middle.
             for dropped in self.windowHistory[self.currSelected + 1:]:
                 if dropped is not None:
                     dropped.Destroy()
@@ -366,7 +386,7 @@ def OpenDetailForVnum(vnum):
     )
 ```
 
-`MyDetailPage` subclasses `DetailPageBase` and overrides `OpenWindow()` to refresh data on each arrival.
+`MyDetailPage` subclasses `DetailPageBase` and overrides `OpenWindow()` to refresh data on each arrival. If the page owns tooltips / child dialogs, override `_DestroyPage()` (NOT `Destroy()`) to tear them down -- the base `Destroy()` is decorated and calls the hook.
 
 ## Common variations
 
@@ -380,7 +400,7 @@ def OpenDetailForVnum(vnum):
 
 - **`del history[currSelected+1:]` without `Destroy()` on dropped pages** -- failure-atlas entry 29 root cause #1. Always destroy each truncated entry before slicing the list.
 - **`Hide()` instead of `Destroy()` on dropped pages** -- failure-atlas entry 29 root cause #2. Hide only stops rendering; the page stays in the parent widget tree.
-- **Page-owned tooltips / child dialogs not torn down** -- failure-atlas entry 29 root cause #3. Subclass Destroy() must explicitly tear down any non-WOC-reachable children.
+- **Page-owned tooltips / child dialogs not torn down** -- failure-atlas entry 29 root cause #3. Subclass `_DestroyPage()` (the hook called from the decorated base `Destroy()`) must explicitly tear down any non-WOC-reachable children. Do NOT override `Destroy()` itself: that would strip the `@ui.WindowDestroy` decorator and break Critical Rule 1.
 - **Storing landing page as `windowHistory[0]`** -- conflates landing with detail pages. The anchor keeps landing OUTSIDE the history list and uses `currSelected = -1` as the landing marker.
 - **Bare bound methods on Prev / Next / Home buttons** -- `btn.SetEvent(self.OnPressPrevButton)` leaks `self`. Use `ui.__mem_func__()` per Critical Rule 5.
 - **Building landing page in `__init__` instead of lazily in `Open()`** -- delays first window open by N widget allocations and leaves the landing alive across Open / Close cycles. Lazy-build keeps Open() fast.
