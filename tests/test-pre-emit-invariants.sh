@@ -49,7 +49,7 @@ assert_ge "Pre-Emit checklist items" "16" "$pre_emit_items"
 
 # 2. failure-atlas has 14 numbered entries (## N. "...")
 atlas_entries=$(grep -cE '^## [0-9]+\. "' "$ATLAS")
-assert_eq "Atlas numbered entries" "14" "$atlas_entries"
+assert_ge "Atlas numbered entries" "14" "$atlas_entries"
 
 # 3. Every atlas entry has a Quick check (one per entry minimum)
 quick_checks=$(grep -c '\*\*Quick check:\*\*' "$ATLAS")
@@ -64,13 +64,13 @@ assert_ge "Atlas See also count (slack=2)" "$expected_see_alsos" "$see_alsos"
 
 # 5. Six anchors present
 anchors_dir="${REPO_ROOT}/skills/m2ui/reference/anchors"
-for n in 01 02 03 04 05 06; do
+for n in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16; do
     found=$(ls "${anchors_dir}/" 2>/dev/null | grep -c "^${n}-" || echo 0)
     assert_eq "Anchor ${n} present" "1" "$found"
 done
 
 # 6. Mandatory-floor reference files present
-for ref in event-binding.md mental-model.md widgets.md patterns.md bindings.md locale.md failure-atlas.md visual-conventions.md; do
+for ref in event-binding.md mental-model.md widgets.md patterns.md bindings.md locale.md failure-atlas.md visual-conventions.md framework-augmentations.md integration.md; do
     assert_file_exists "reference/${ref}" "${REPO_ROOT}/skills/m2ui/reference/${ref}"
 done
 

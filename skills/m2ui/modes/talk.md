@@ -33,10 +33,14 @@ Tell the user which style you chose and why. Let them override.
 ## Step 4: Generate Code
 
 Read these reference files (paths relative to repo root):
+- `skills/m2ui/reference/mental-model.md` for the deprogram-web-assumptions floor (mandatory)
 - `skills/m2ui/reference/event-binding.md` for the callback wrapping matrix (mandatory)
 - `skills/m2ui/reference/widgets.md` for exact property names and valid values
 - `skills/m2ui/reference/patterns.md` for the appropriate style template
 - `skills/m2ui/reference/locale.md` for locale string rules
+- `skills/m2ui/reference/visual-conventions.md` for chrome / archetype / palette when visual style matters
+- `skills/m2ui/reference/framework-augmentations.md` when emitting Pattern B with extra args (Critical Rule 19)
+- `skills/m2ui/reference/integration.md` after the window is built — for the integration snippet shape
 
 Generate:
 1. The uiscript file (if script-backed) or `__LoadDialog` method (if code-only)

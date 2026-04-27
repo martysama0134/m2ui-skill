@@ -57,21 +57,43 @@ Based on detected mode, read the corresponding mode file from `modes/` directory
 | Auditing existing code for anti-patterns | Mode-specific: `modes/diagnose.md` already loaded by mode dispatch |
 | User describes a visible symptom ("X looks broken", "click does nothing", "leak after closing") | `reference/failure-atlas.md` — jump to the matching symptom heading FIRST, before loading anchors |
 | Composing a window from scratch where the visual style/sizing matters | `reference/visual-conventions.md` — pick archetype + chrome + palette before coding |
+| Generated a window and need to wire it into the main interface | `reference/integration.md` (always — runs after every emission) |
 
-**Anchor selection** — when generating from scratch, pick the closest anchor:
+**Anchor selection** — when generating a window from scratch, follow the 2-step decision tree.
+
+**Step 1 — pick ONE primary archetype (the window's chrome):**
 
 | Window type | Anchor |
 |-------------|--------|
 | Modal yes/no/text dialog | `reference/anchors/01-simple-dialog.md` |
-| Board chrome + scrolling dynamic list | `reference/anchors/02-board-with-list.md` |
+| Board chrome + scrolling DYNAMIC list | `reference/anchors/02-board-with-list.md` |
 | Form: list of radio-buttons + Accept | `reference/anchors/03-list-selector.md` |
 | Custom 9-slice bordered panel | `reference/anchors/04-9slice-panel.md` |
-| Window guarded by `app.ENABLE_*` flag | `reference/anchors/05-feature-gated.md` |
-| Inventory-style window with `SetItemToolTip` | `reference/anchors/06-tooltip-bound.md` |
+| Inventory-style with `SetItemToolTip` / `SetSkillToolTip` | `reference/anchors/06-tooltip-bound.md` |
+| Shop / exchange / trade (slots + gold + Accept) | `reference/anchors/07-shop-exchange.md` |
+| Inventory / equipment grid (refresh / page / locked) | `reference/anchors/08-inventory-equipment.md` |
+| Options / settings (checkbox / slider / combo) | `reference/anchors/09-options-settings.md` |
+| Paginated slot grid (private-shop-builder style) | `reference/anchors/10-paginated-slot-grid.md` |
+| Quest / NPC dialog (server text + close-on-distance) | `reference/anchors/11-quest-npc-dialog.md` |
+| Storage / warehouse / mall (slots + password / gold) | `reference/anchors/12-storage-warehouse.md` |
+| Craft / refine / item-enhancement (cube, dragon-soul) | `reference/anchors/13-craft-refine-window.md` |
 
-If no anchor matches exactly, pick the closest, copy its skeleton, swap the specifics. Do NOT invent layout from scratch — start from a working pattern.
+No exact match → pick CLOSEST. Do NOT skip Step 1.
 
-**Load discipline:** Read `reference/anchors/README.md` to choose the anchor, then load AT MOST ONE anchor file — EXCEPT `05-feature-gated.md`, which is a call-site wrapper that augments another anchor. Generating a flag-gated window means loading TWO anchors: 05 (for the gating pattern) + the underlying window-type anchor (01/02/03/04/06). Do not load all anchors unless the user's task is comparing anchors. Same applies to widgets.md/locale.md/bindings.md/patterns.md — load only the section you need, not the whole file.
+**Step 2 — pick zero or more augmentors (behaviors layered on the primary):**
+
+| Behavior | Anchor |
+|----------|--------|
+| Window guarded by `app.ENABLE_*` | `reference/anchors/05-feature-gated.md` |
+| Slot↔slot or slot↔window drag-and-drop | `reference/anchors/14-drag-and-drop.md` |
+| Driven by `net.Send` / `RecvX` packets | `reference/anchors/15-network-coupled-flow.md` |
+| Multiple panes switched by tabs / radios | `reference/anchors/16-tabbed-content.md` |
+
+**Load order:** read primary FIRST, then augmentors in order. Augmentors layer on top — they DO NOT override the primary's lifecycle/structure.
+
+**Conflict tie-breaker:** when two archetypes seem to fit, pick the one matching the window's CHROME (visual structure), not its DATA (data shape is augmentor territory). Example: "tabbed inventory" → primary `08-inventory-equipment` + augmentor `16-tabbed-content`; NOT `16-tabbed-content` alone.
+
+**Load discipline:** Read `reference/anchors/README.md` to walk the 2-step decision tree, then load: (a) ONE primary archetype anchor (Step 1 result), plus (b) zero or more augmentor anchors (Step 2 results). Augmentors are: `05-feature-gated`, `14-drag-and-drop`, `15-network-coupled-flow`, `16-tabbed-content`. Loading multiple primaries is forbidden; loading multiple augmentors is allowed and common (e.g., a draggable inventory uses 08 + 14 + possibly 15 if server-driven). Same applies to widgets.md/locale.md/bindings.md/patterns.md — load only the section you need, not the whole file.
 
 > **Symptom-first dispatch:** When the user reports a visible bug rather than asking for new code, load `reference/failure-atlas.md` BEFORE any anchor. Diagnose, then (if a fix means new code) load the relevant anchor.
 
@@ -157,3 +179,5 @@ Always provide an **interfacemodule.py integration snippet** showing:
 - Toggle method for taskbar/keybind hookup
 - `Destroy()` call in cleanup section
 - `Hide()` call in HideAllWindows
+
+> **For the integration snippet shape and variations**, load `reference/integration.md`. Every emission produces an integration snippet; the reference catalogs the structural pattern + lazy-init / gated-toggle / tooltip-binding variations.
