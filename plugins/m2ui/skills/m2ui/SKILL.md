@@ -83,6 +83,8 @@ Based on detected mode, read the corresponding mode file from `modes/` directory
 | Daily reward grid / check-in calendar | `reference/anchors/19-daily-reward-grid.md` |
 | Leaderboard / rank table (fixed-column rows) | `reference/anchors/20-leaderboard-table.md` |
 | Wheel / roulette / gacha (time-based animation) | `reference/anchors/21-wheel-roulette.md` |
+| Multi-page detail browser (history + Prev/Next + landing) | `reference/anchors/24-page-history-browser.md` |
+| Expandable grouped list (category headers + leaves) | `reference/anchors/25-expandable-tree-list.md` |
 
 No exact match → pick CLOSEST. Do NOT skip Step 1.
 

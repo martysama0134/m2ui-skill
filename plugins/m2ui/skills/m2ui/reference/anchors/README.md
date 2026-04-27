@@ -32,6 +32,8 @@ Anchors split into two categories:
 | Daily reward grid / check-in calendar | `19-daily-reward-grid.md` |
 | Leaderboard / rank table | `20-leaderboard-table.md` |
 | Wheel / roulette / gacha | `21-wheel-roulette.md` |
+| Multi-page detail browser (history + Prev/Next + landing) | `24-page-history-browser.md` |
+| Expandable grouped list (category headers + leaves) | `25-expandable-tree-list.md` |
 
 No exact match → pick CLOSEST. Do NOT skip Step 1.
 

@@ -61,6 +61,8 @@ Detect the appropriate mode from the user's input:
 | Daily reward grid / check-in | `skills/m2ui/reference/anchors/19-daily-reward-grid.md` |
 | Leaderboard / rank table | `skills/m2ui/reference/anchors/20-leaderboard-table.md` |
 | Wheel / roulette / gacha | `skills/m2ui/reference/anchors/21-wheel-roulette.md` |
+| Multi-page detail browser | `skills/m2ui/reference/anchors/24-page-history-browser.md` |
+| Expandable grouped list | `skills/m2ui/reference/anchors/25-expandable-tree-list.md` |
 
 No exact match → pick CLOSEST. Do NOT skip Step 1.
 
