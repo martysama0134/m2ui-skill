@@ -208,28 +208,32 @@ TAB_COMPOSE = 2
 
 
 class Post(ui.Window):
-    """One left-pane post-button summary widget."""
+    """One left-pane post-button summary widget.
 
-    def __init__(self, parent, rowIndex, clickCallback):
+    The button click handler binds directly to a proxy of the parent
+    MailboxWindow. Storing the parent's bound method on this widget would
+    defeat the proxy lambda's weakref discipline (the cell would still
+    hold the parent strong via the bound method, recreating the cycle the
+    proxy was meant to break).
+    """
+
+    def __init__(self, parent, parentWindow, rowIndex):
         ui.Window.__init__(self)
         self.SetParent(parent)
         self.rowIndex = rowIndex
         self.dataIndex = -1
-        self.clickCallback = clickCallback
         self.button = ui.Button()
         self.button.SetParent(self)
         self.button.SetUpVisual("d:/ymir work/ui/public/parameter_slot_03.sub")
         self.button.SetOverVisual("d:/ymir work/ui/public/parameter_slot_03.sub")
         self.button.SetDownVisual("d:/ymir work/ui/public/parameter_slot_03.sub")
-        self.button.SetEvent(lambda r=proxy(self): r.OnClick())
+        self.button.SetEvent(
+            lambda r=proxy(parentWindow), idx=rowIndex: r.OnClickPost(idx)
+        )
         self.button.Show()
 
     def __del__(self):
         ui.Window.__del__(self)
-
-    def OnClick(self):
-        if self.clickCallback is not None:
-            self.clickCallback(self.rowIndex)
 
     def SetDataIndex(self, dataIndex):
         self.dataIndex = dataIndex
@@ -325,8 +329,8 @@ class MailboxWindow(ui.ScriptWindow):
 
         # Pre-allocate post rows (row-pool refresh; never destroy + recreate
         # per refresh -- failure-atlas entry 26).
-        for index in range(POSTS_PER_PAGE):
-            row = Post(self.listBoard, index, self.OnClickPost)
+        for index in xrange(POSTS_PER_PAGE):
+            row = Post(self.listBoard, self, index)
             row.SetPosition(8, 8 + index * 40)
             row.SetSize(224, 36)
             row.Hide()

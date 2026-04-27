@@ -253,7 +253,7 @@ class SearchDialog(ui.ScriptWindow):
         self.__BuildFilterCombos()
 
     def __BuildResultRows(self):
-        for index in range(RESULTS_PER_PAGE):
+        for index in xrange(RESULTS_PER_PAGE):
             row = ui.Button()
             row.SetParent(self.resultsBoard)
             row.SetPosition(8, 8 + index * 32)
@@ -283,6 +283,11 @@ class SearchDialog(ui.ScriptWindow):
         self.Show()
 
     def Close(self):
+        # KillFocus on the EditLine so IME stops routing to the now-hidden
+        # widget. Without this the next keypress lands in the hidden field
+        # and the user sees no caret feedback.
+        if self.nameEdit:
+            self.nameEdit.KillFocus()
         self.Hide()
 
     def OnPressEscapeKey(self):

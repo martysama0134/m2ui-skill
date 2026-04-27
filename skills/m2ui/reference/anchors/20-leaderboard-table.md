@@ -233,7 +233,7 @@ class LeaderboardWindow(ui.ScriptWindow):
         self.__BuildMyRankRow()
 
     def __BuildRowPool(self):
-        for index in range(ROWS_PER_PAGE):
+        for index in xrange(ROWS_PER_PAGE):
             rowButton = ui.Button()
             rowButton.SetParent(self.rowsBoard)
             rowButton.SetPosition(4, 4 + index * ROW_HEIGHT)

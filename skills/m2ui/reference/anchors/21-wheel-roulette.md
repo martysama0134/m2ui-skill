@@ -2,7 +2,7 @@
 
 ## What this is + when to use it
 
-A primary archetype for **time-based wheel-spinning windows**. Window shows a circular wheel widget (image + rotation transform) + Spin button + result preview slot + cost text. One-shot lifecycle: window opens, user pays the cost (Yang / cheque / free-spin token), Spin button sends a packet, server picks the result and pushes back the final segment index, the client animates the wheel to the matching segment via ease-out rotation, the result is revealed, and the window auto-closes.
+A primary archetype for **time-based wheel-spinning windows**. Window shows a circular wheel widget (image + rotation transform) + Spin button + result preview slot + cost text. One-shot lifecycle: window opens, user pays the cost (Yang / cheque / free-spin token), Spin button sends a packet, server picks the result and pushes back the final segment index, the client animates the wheel to the matching segment via ease-out rotation, the result is revealed in the result slot, and the user dismisses with the Close button (Close is blocked during the spin to protect the server-committed result).
 
 Use this archetype for: gacha box, soul-roulette, lucky-spin, wheel-of-destiny, daily-spin, prize-wheel. Subsumes the mini-game overlay archetype (one-shot Show -> spin -> close lifecycle).
 
@@ -268,6 +268,16 @@ class WheelRouletteWindow(ui.ScriptWindow):
         # Server-authoritative result. Client renders the animation
         # converging on the segment server picked. NEVER pick locally
         # (failure-atlas entry 24).
+        # Guard against duplicate Recv packets and against results arriving
+        # for a window the user already closed: only honor the first result
+        # for an in-flight spin while the window is visible.
+        if self.spinning:
+            return
+        if not self.isPending:
+            return
+        if not self.IsShow():
+            self.isPending = False
+            return
         self.finalSegmentIdx = int(finalSegmentIdx)
         self.rewardVnum = int(rewardVnum)
         self.rewardCount = int(rewardCount)
@@ -314,11 +324,15 @@ class WheelRouletteWindow(ui.ScriptWindow):
             self.wheelImage.SetRotation(self.rotation)
 
     def __OnSpinComplete(self):
-        # Reveal the reward in the result slot.
+        # Reveal the reward in the result slot, then re-enable Close so the
+        # user can dismiss the window. Spin button stays disabled until the
+        # window is reopened with a fresh Open(cost) call -- the lifecycle
+        # is one-shot per session.
         if self.rewardVnum > 0:
             self.resultSlot.SetItemSlot(0, self.rewardVnum, self.rewardCount)
-        self.spinButton.Enable()
-        self.spinButton.SetUp()
+        # Spin button intentionally stays disabled at the end of a one-shot
+        # session. Forks that allow re-spin without re-opening the window
+        # should call self.spinButton.Enable() + Open() with a fresh cost.
         # Optional: send a confirm packet so the server moves the reward
         # into inventory at this point (some forks split the result-pick
         # and reward-grant into two packets so the user sees the spin

@@ -31,6 +31,13 @@ if [ ! -d "$SURVEY_DIR" ]; then
     echo "Note: research directory $SURVEY_DIR not present; nothing to scan against."
     echo "Set SURVEY_DIR or extract reference .py files there before scanning."
     : > "$REPORT"
+    # In strict mode (STRICT_SIMILARITY=1) the absent corpus is a hard fail
+    # rather than informational. Use this when wiring the scan into CI or a
+    # pre-push hook where every reviewer is expected to have the same corpus.
+    if [ "${STRICT_SIMILARITY:-0}" = "1" ]; then
+        echo "STRICT mode: research corpus required but missing -- failing."
+        exit 1
+    fi
     exit 0
 fi
 

@@ -118,13 +118,20 @@ CELL_STATE_MISSED = 3     # past day that was not claimed (still locked)
 
 
 class DayCell(ui.Window):
-    """One cell in the reward grid. Owns its slot widget and overlay icon."""
+    """One cell in the reward grid. Owns its slot widget and overlay icon.
 
-    def __init__(self, parent, dayIndex, clickCallback):
+    The cell binds its slot click handler directly to a proxy of the parent
+    window. Storing a bound parent method on the cell (e.g.,
+    `self.clickCallback = parentWindow.OnClickCell`) would defeat the proxy
+    lambda's weakref discipline -- the cell would still hold the parent
+    strong via the bound method, recreating the cycle the proxy was meant
+    to break.
+    """
+
+    def __init__(self, parent, parentWindow, dayIndex):
         ui.Window.__init__(self)
         self.SetParent(parent)
         self.dayIndex = dayIndex
-        self.clickCallback = clickCallback
         self.state = CELL_STATE_LOCKED
 
         self.slot = ui.SlotWindow()
@@ -133,7 +140,9 @@ class DayCell(ui.Window):
         self.slot.SetPosition(0, 0)
         self.slot.SetSize(CELL_SIZE, CELL_SIZE)
         self.slot.AppendSlot(0, 0, 0, CELL_SIZE, CELL_SIZE)
-        self.slot.SetSelectEmptySlotEvent(lambda r=proxy(self), idx=dayIndex: r.OnClick(idx))
+        self.slot.SetSelectEmptySlotEvent(
+            lambda r=proxy(parentWindow), idx=dayIndex: r.OnClickCell(idx)
+        )
         self.slot.Show()
 
         self.dayLabel = ui.TextLine()
@@ -151,10 +160,6 @@ class DayCell(ui.Window):
 
     def __del__(self):
         ui.Window.__del__(self)
-
-    def OnClick(self, dayIndex):
-        if self.clickCallback is not None:
-            self.clickCallback(dayIndex)
 
     def SetReward(self, vnum, count):
         if vnum > 0:
@@ -212,12 +217,12 @@ class DailyRewardWindow(ui.ScriptWindow):
         self.__LoadRewardConfig()
 
     def __BuildGrid(self):
-        for dayIndex in range(DAY_COUNT):
+        for dayIndex in xrange(DAY_COUNT):
             col = dayIndex % GRID_COLUMNS
             row = dayIndex // GRID_COLUMNS
             x = GRID_OFFSET_X + col * (CELL_SIZE + CELL_GAP)
             y = GRID_OFFSET_Y + row * (CELL_SIZE + CELL_GAP)
-            cell = DayCell(self.gridBoard, dayIndex, self.OnClickCell)
+            cell = DayCell(self.gridBoard, self, dayIndex)
             cell.SetPosition(x, y)
             cell.SetSize(CELL_SIZE, CELL_SIZE)
             cell.Show()

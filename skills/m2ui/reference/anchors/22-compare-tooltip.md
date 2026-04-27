@@ -82,15 +82,27 @@ class ItemToolTip(ToolTip):
             return
         # Render the compare tooltip immediately to the right of the primary,
         # clamped within screen bounds so it never renders off-screen.
-        x, y = self.GetGlobalPosition()
-        x += self.GetWidth()
+        primaryX, primaryY = self.GetGlobalPosition()
+        primaryWidth = self.GetWidth()
+        compareWidth = self.compareTooltip.GetWidth()
+        compareHeight = self.compareTooltip.GetHeight()
         screenWidth = wndMgr.GetScreenWidth()
         screenHeight = wndMgr.GetScreenHeight()
-        if x + self.compareTooltip.GetWidth() > screenWidth:
+
+        x = primaryX + primaryWidth
+        y = primaryY
+        if x + compareWidth > screenWidth:
             # Falls off right -- flip to the LEFT of the primary.
-            x = self.GetGlobalPosition()[0] - self.compareTooltip.GetWidth()
-        if y + self.compareTooltip.GetHeight() > screenHeight:
-            y = screenHeight - self.compareTooltip.GetHeight()
+            x = primaryX - compareWidth
+        # Final clamp so the tooltip never renders off either edge, even when
+        # the compare tooltip is wider than the screen or the primary sits
+        # near a corner.
+        if x < 0:
+            x = 0
+        if x + compareWidth > screenWidth:
+            x = max(0, screenWidth - compareWidth)
+        if y + compareHeight > screenHeight:
+            y = screenHeight - compareHeight
         if y < 0:
             y = 0
         self.compareTooltip.SetPosition(x, y)
@@ -129,6 +141,10 @@ def __DestroyDialogs(self):
     # ... existing destroy calls for tooltipItem, tooltipSkill, etc. ...
     if app.ENABLE_COMPARE_TOOLTIP:
         if self.tooltipItem is not None and self.tooltipItem.compareTooltip is not None:
+            # Hide first so any in-flight render finishes against a still-
+            # valid widget, then null the reference so WOC can tear down the
+            # widget tree on the next frame.
+            self.tooltipItem.compareTooltip.Hide()
             self.tooltipItem.compareTooltip = None
 ```
 
