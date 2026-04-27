@@ -70,7 +70,7 @@ for n in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16; do
 done
 
 # 6. Mandatory-floor reference files present
-for ref in event-binding.md mental-model.md widgets.md patterns.md bindings.md locale.md failure-atlas.md visual-conventions.md framework-augmentations.md integration.md; do
+for ref in event-binding.md mental-model.md widgets.md patterns.md bindings.md locale.md failure-atlas.md visual-conventions.md framework-augmentations.md integration.md timer-patterns.md; do
     assert_file_exists "reference/${ref}" "${REPO_ROOT}/skills/m2ui/reference/${ref}"
 done
 

@@ -54,23 +54,23 @@ assert_file_exists "integration.md" "$INTEGRATION"
 assert_file_grep "README Step 1 section" "$README" '^### Step 1'
 assert_file_grep "README Step 2 section" "$README" '^### Step 2'
 
-# 3. README Step 1 has >= 12 archetype rows (existing 5 + 7 new in this PR)
+# 3. README Step 1 has >= 17 archetype rows (12 from Phase A + 5 new in Phase B)
 step1_rows=$(awk '
     /^### Step 1/{f=1; next}
     f && /^### Step 2/{exit}
     f && /`[0-9][0-9]-.*\.md`/{c++}
     END{print c+0}
 ' "$README")
-assert_ge "README Step 1 archetype rows" "12" "$step1_rows"
+assert_ge "README Step 1 archetype rows" "17" "$step1_rows"
 
-# 4. README Step 2 has >= 4 augmentor rows
+# 4. README Step 2 has >= 6 augmentor rows (4 from Phase A + 2 new in Phase B)
 step2_rows=$(awk '
     /^### Step 2/{f=1; next}
     f && /^### Load order/{exit}
     f && /`[0-9][0-9]-.*\.md`/{c++}
     END{print c+0}
 ' "$README")
-assert_ge "README Step 2 augmentor rows" "4" "$step2_rows"
+assert_ge "README Step 2 augmentor rows" "6" "$step2_rows"
 
 # 5. SKILL.md has Step 1 + Step 2 sections (mirror)
 assert_file_grep "SKILL Step 1 section" "$SKILL" 'Step 1.*pick ONE primary archetype'
@@ -81,7 +81,7 @@ assert_file_grep "activate Step 1 section" "$ACTIVATE" 'Step 1.*pick ONE primary
 assert_file_grep "activate Step 2 section" "$ACTIVATE" 'Step 2.*pick zero or more augmentors'
 
 # 7. Each augmentor file declares its body section
-for n in 05 14 15 16; do
+for n in 05 14 15 16 22 23; do
     files=$(ls "${ANCHORS_DIR}/${n}-"*.md 2>/dev/null || true)
     if [ -z "$files" ]; then
         # Augmentor file may not exist yet during incremental landing — skip

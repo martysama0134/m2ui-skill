@@ -1,0 +1,58 @@
+# Substring allowlist for tests/test-similarity-scan.sh.
+# One pattern per line. Lines starting with # are comments; blank lines ignored.
+# Semantics: substring match. If a candidate match line contains any allowlist
+# substring, the match is treated as a known house-style idiom and ignored.
+#
+# Add patterns here when the similarity-scan flags an idiom that's common across
+# the engine surface (lifecycle methods, canonical mouseModule calls, asset path
+# prefixes, etc.) and isn't lifted code.
+
+# Lifecycle method signatures (engine-required shapes)
+def __init__(self):
+def __del__(self):
+def Destroy(self):
+def Open(self):
+def Close(self):
+def OnPressEscapeKey(self):
+def __LoadWindow(self):
+def __LoadDialog(self):
+def __Initialize(self):
+def Initialize(self):
+def OnUpdate(self):
+
+# Canonical engine calls
+ui.ScriptWindow.__init__(self)
+ui.ScriptWindow.__del__(self)
+self.ClearDictionary()
+self.SetCenterPosition()
+self.SetTop()
+self.Show()
+self.Hide()
+mouseModule.mouseController
+event.SetEventHandler
+net.SetHandler
+
+# Common imports
+from _weakref import proxy
+import localeInfo
+import uiScriptLocale
+import constInfo
+import wndMgr
+import mouseModule
+import player
+
+# Standard event-handler shapes
+ui.__mem_func__(self.
+.SetCloseEvent(ui.__mem_func__(self.Close))
+.SetSelectItemSlotEvent(ui.__mem_func__(self.
+.SetSelectEmptySlotEvent(ui.__mem_func__(self.
+.SetOverInItemEvent(
+
+# Asset-path conventions
+"d:/ymir work/ui/public/
+"d:/ymir work/ui/game/
+"d:/ymir work/ui/
+
+# Player position snapshot (close-on-distance idiom)
+(self.startX, self.startY,
+player.GetMainCharacterPosition()
