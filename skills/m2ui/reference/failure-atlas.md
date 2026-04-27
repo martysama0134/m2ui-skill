@@ -434,6 +434,20 @@ When a user reports "X looks broken" instead of "fix this code", start here. Eac
 
 ---
 
+## 29. "History navigation leaks hidden pages"
+
+**Likely root causes (ranked by frequency):**
+
+1. **Forward history sliced without destruction** -- `del self.windowHistory[self.currSelected + 1:]` drops Python refs but never calls `Destroy()` on parent-attached page widgets.
+2. **Hidden pages treated as cleaned-up pages** -- `Hide()` only removes rendering / interaction; it does not remove the page from the parent widget tree.
+3. **Page-owned children / callbacks keep the orphan alive** -- tooltips, slot callbacks, or child dialogs created by the page are not torn down because the page `Destroy()` never runs.
+
+**Quick check:** Navigate A -> B -> C, back to A, then open D repeatedly. Trace `len(self.windowHistory)` plus `wndMgr.GetWidgetCount()` (or fork equivalent). If history length stays bounded but widget count grows, root cause is #1.
+
+**See also:** `skills/m2ui/reference/anchors/24-page-history-browser.md`; failure-atlas entry 3 (callback leaks); entries 9 / 28 (tooltip cleanup).
+
+---
+
 ## Debug snippets (appendix — not a symptom entry)
 
 The following snippets are useful when diagnosing unfamiliar UI bugs. Drop them in temporarily, remove before commit. They are NOT canonical patterns.

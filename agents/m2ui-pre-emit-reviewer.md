@@ -114,6 +114,10 @@ For every emission, infer which augmentors SHOULD have been loaded based on the 
 - Generated code creates a second `ItemToolTip` (`compareTooltip = ...`) or references `item.GetCompareIndex` / `app.IsPressed(app.DIK_LALT)` for tooltip purposes → `22-compare-tooltip` should have been loaded
 - Generated code has an `OnUpdate` body that mutates `self.alpha` / calls `SetAlpha` based on a `lastActivity` / idle-time variable → `23-auto-hide-chrome` should have been loaded
 - Generated code has an `OnUpdate` body that compares against `self.lastSearchTime` / disables a Search button on cooldown → cross-link `timer-patterns.md` section 4 (check-interval)
+- Generated code maintains a `windowHistory` list + `currSelected` index + Prev/Next button handlers → `24-page-history-browser` should have been loaded
+- Generated code defines `CategoryHeader` / leaf classes with `expanded` state + `NotifySizeChange` callback → `25-expandable-tree-list` should have been loaded
+- Generated code calls `del self.windowHistory[idx:]` (or any forward-history truncation) without `Destroy()` on the dropped entries → flag as failure-atlas entry 29 candidate; recommend explicit Destroy loop before slicing
+- Generated code clears an owned widget list (`self.pages = []`, `del self.pages[:]`, `self.categories = None`, `self.children = []`, etc.) without a preceding loop calling `Destroy()` on each element → generic widget-list cleanup leak; flag as IMPORTANT finding even if no specific anchor is implicated
 
 If a generated emission shows shape too close to a single source's specific identifiers (rare but possible when the parent agent under-normalized during clean-room synthesis), flag as IMPORTANT finding: "Generated code shape resembles the source's specific phrasing. Recommend rewriting from the m2ui house-style template (proxy lambdas, generic class names, placeholder packet APIs)."
 
