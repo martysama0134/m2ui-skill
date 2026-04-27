@@ -52,6 +52,11 @@ Detect the appropriate mode from the user's input:
 | Quest / NPC dialog | `skills/m2ui/reference/anchors/11-quest-npc-dialog.md` |
 | Storage / warehouse / mall | `skills/m2ui/reference/anchors/12-storage-warehouse.md` |
 | Craft / refine / item-enhancement | `skills/m2ui/reference/anchors/13-craft-refine-window.md` |
+| Search / filter dialog with results list | `skills/m2ui/reference/anchors/17-search-filter-dialog.md` |
+| Mailbox / message inbox | `skills/m2ui/reference/anchors/18-mailbox-two-pane.md` |
+| Daily reward grid / check-in | `skills/m2ui/reference/anchors/19-daily-reward-grid.md` |
+| Leaderboard / rank table | `skills/m2ui/reference/anchors/20-leaderboard-table.md` |
+| Wheel / roulette / gacha | `skills/m2ui/reference/anchors/21-wheel-roulette.md` |
 
 No exact match → pick CLOSEST. Do NOT skip Step 1.
 
@@ -63,10 +68,12 @@ No exact match → pick CLOSEST. Do NOT skip Step 1.
 | Slot↔slot or slot↔window drag-drop | `skills/m2ui/reference/anchors/14-drag-and-drop.md` |
 | Driven by `net.Send` / `RecvX` packets | `skills/m2ui/reference/anchors/15-network-coupled-flow.md` |
 | Multiple panes switched by tabs / radios | `skills/m2ui/reference/anchors/16-tabbed-content.md` |
+| Compare-tooltip side-by-side | `skills/m2ui/reference/anchors/22-compare-tooltip.md` |
+| Auto-hide chrome on inactivity timer | `skills/m2ui/reference/anchors/23-auto-hide-chrome.md` |
 
 If no anchor matches exactly, pick the closest, copy its skeleton, swap the specifics. Do NOT invent layout from scratch.
 
-**Load discipline:** Read `skills/m2ui/reference/anchors/README.md` to walk the 2-step decision tree, then load: (a) ONE primary archetype anchor (Step 1 result), plus (b) zero or more augmentor anchors (Step 2 results). Augmentors are: `05-feature-gated`, `14-drag-and-drop`, `15-network-coupled-flow`, `16-tabbed-content`. Loading multiple primaries is forbidden; loading multiple augmentors is allowed and common (e.g., a draggable inventory uses 08 + 14 + possibly 15 if server-driven). Same applies to widgets.md/locale.md/bindings.md/patterns.md — load only the section you need, not the whole file.
+**Load discipline:** Read `skills/m2ui/reference/anchors/README.md` to walk the 2-step decision tree, then load: (a) ONE primary archetype anchor (Step 1 result), plus (b) zero or more augmentor anchors (Step 2 results). Augmentors are: `05-feature-gated`, `14-drag-and-drop`, `15-network-coupled-flow`, `16-tabbed-content`, `22-compare-tooltip`, `23-auto-hide-chrome`. Loading multiple primaries is forbidden; loading multiple augmentors is allowed and common (e.g., a draggable inventory uses 08 + 14 + possibly 15 if server-driven). Same applies to widgets.md/locale.md/bindings.md/patterns.md — load only the section you need, not the whole file.
 
 For detailed mode-specific instructions:
 
@@ -143,3 +150,5 @@ If checklist passes: proceed. If any item fails: revise silently.
 Always provide an **interfacemodule.py integration snippet** showing import, instance creation, tooltip binding, toggle method, and destroy call.
 
 For the integration snippet shape and variations, load `skills/m2ui/reference/integration.md`. Every emission produces an integration snippet; the reference catalogs the structural pattern + lazy-init / gated-toggle / tooltip-binding variations.
+
+For windows with an `OnUpdate` body (animation, polling, fade, daily-event timing), load `skills/m2ui/reference/timer-patterns.md` for the canonical OnUpdate idiom catalog.

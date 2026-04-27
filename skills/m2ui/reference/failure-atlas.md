@@ -337,6 +337,103 @@ When a user reports "X looks broken" instead of "fix this code", start here. Eac
 
 ---
 
+## 22. "Search dialog returns stale results after server delay"
+
+**Likely root causes (ranked by frequency):**
+
+1. **Synchronous list-refresh after Send** — `OnSearch()` calls `net.SendSearchPacket(filters)` then immediately calls `self.RefreshList()` reading prior `RecvSearchResults` payload. New results arrive later via `RecvSearchResults` and re-trigger refresh, but the user already sees the OLD list for the gap. Fix: clear list + show "Searching..." status overlay on Send; populate ONLY on Recv. Track `isSearchPending` bool.
+2. **Multiple Sends without dedup** — fast clicker sends 3 search packets; server replies in any order; last-arrived overwrites earlier results, not the most-recent-sent. Fix: increment a request-id counter on Send; ignore Recv if its request-id != latest.
+3. **Filter snapshot read at Recv time instead of Send time** — user changes filter → clicks Search → fast-changes filter → first Recv populates with stale filters. Fix: snapshot `currentFilters` at Send time; render Recv results against that snapshot.
+
+**Quick check:** Click Search rapidly with different filter values. If shown results don't match the last-active filters, root cause is #1, #2, or #3.
+
+**See also:** `skills/m2ui/reference/anchors/17-search-filter-dialog.md`; `skills/m2ui/reference/anchors/15-network-coupled-flow.md` (request-response variant 2).
+
+---
+
+## 23. "Daily reward grid claims wrong day after midnight (tz boundary)"
+
+**Likely root causes (ranked by frequency):**
+
+1. **Client-`app.GetTime()`-based `today` computation** — UI computes `today_idx = (app.GetTime() // 86400) % 7` locally. Server uses its own `serverEpoch`. At midnight near tz boundary, client's `today_idx` jumps to tomorrow before server agrees. Fix: server pushes `todayDay` in `RecvDailyState`; UI uses that exclusively.
+2. **Daylight-saving transition** — `app.GetTime()` shifts ±1 hour. Same desync as #1.
+3. **Player travels through tz** — local time changes; server time doesn't. Same desync as #1.
+
+**Quick check:** Set client clock 1 hour ahead of server. If grid shows tomorrow as available, root cause is #1.
+
+**See also:** `skills/m2ui/reference/anchors/19-daily-reward-grid.md`; `skills/m2ui/reference/timer-patterns.md` section 5 (daily-event-timing).
+
+---
+
+## 24. "Wheel animation ends on wrong segment (server desync)"
+
+**Likely root causes (ranked by frequency):**
+
+1. **Client-side random selection in OnUpdate** — `OnUpdate` picks the final segment via `random.randint(0, totalSegments)` to drive the animation. The server's reward (received later via `RecvSpinResult`) doesn't match. Fix: server's `RecvSpinResult` payload INCLUDES `finalSegmentIdx`; client uses it exclusively to compute `finalRotation`.
+2. **Mismatched `spinCount` on client and server** — client animates to `spinCount * 360 + targetDegrees`; server expected client to use `spinCount=5`. With `spinCount=4`, the wheel lands on a different visible segment. Fix: server payload also specifies `spinCount`, OR both sides agree on a shared constant.
+3. **Floating-point precision drift** — animation runs for 5+ seconds; accumulated `dt` math drifts from intended `finalRotation` by 1-2 degrees, enough to land on a neighboring segment. Fix: at settle, snap rotation to exactly `finalRotation` (don't trust accumulated math).
+
+**Quick check:** Spin 10 times; record server-reported reward vs visible segment. If they ever differ, root cause is #1 or #2.
+
+**See also:** `skills/m2ui/reference/anchors/21-wheel-roulette.md`; `skills/m2ui/reference/timer-patterns.md` sections 2 / 6 / 7.
+
+---
+
+## 25. "Mailbox attachment lost on send-reject"
+
+**Likely root causes (ranked by frequency):**
+
+1. **DeattachObject before server confirms** — `OnSendMail()` sends the packet then calls `mouseModule.mouseController.DeattachObject()`. If the server rejects (over-capacity, item-bound, recipient-blocked), the attachment is gone but the item was not sent. Fix: detach only after `OnRecvMailSent(success=True)`. On reject, leave the attachment attached so the user can retry.
+2. **Window close mid-send** — user clicks Send then closes the window before the Recv arrives. Window's `Destroy()` clears attachment refs. Fix: `Hide()`/`Destroy()` checks `is-send-pending`; if true, defer cleanup until Recv.
+
+**Quick check:** Trigger over-capacity Reject (mail to a full inbox); check inventory for the attached item. If gone, root cause is #1.
+
+**See also:** `skills/m2ui/reference/anchors/18-mailbox-two-pane.md`; `skills/m2ui/reference/anchors/14-drag-and-drop.md`.
+
+---
+
+## 26. "Rank list refresh hangs UI for >100ms"
+
+**Likely root causes (ranked by frequency):**
+
+1. **Full-list rebuild on every refresh** — `RefreshRanking()` deletes all N row widgets via `child.Destroy()` then re-creates N new widgets. For N=100 this is 200 widget operations; UI hangs noticeably. Fix: ROW-POOL pattern — pre-allocate N row widgets at `LoadWindow` time. On refresh, walk rows and call `SetText` / `SetIcon` on existing widgets. Hide overflow rows.
+2. **Per-row tooltip widget rebuild** — each row owns its own tooltip widget; refresh creates 100 new tooltips. Fix: tooltip is shared (interfacemodule-owned `tooltipItem`); hover-enter sets its data.
+3. **Synchronous icon-load on refresh** — each row loads its own icon image from disk. Disk I/O on 100 rows = hang. Fix: pre-cache icon handles at `LoadWindow`; refresh swaps cached handles.
+
+**Quick check:** Refresh ranking with N=100. Time the UI hang via stopwatch. If >100ms, root cause is #1.
+
+**See also:** `skills/m2ui/reference/anchors/20-leaderboard-table.md`.
+
+---
+
+## 27. "Auto-hide chrome doesn't re-show on hotkey-open"
+
+**Likely root causes (ranked by frequency):**
+
+1. **Hotkey calls `Toggle()` without resetting `lastActivity`** — `Toggle()` toggles visibility; `OnUpdate`'s fade-timer is still running on `lastActivity = (last mouse move)`. Window opens then immediately starts fading. Fix: `Toggle()` and `Open()` reset `self.lastActivity = app.GetTime()`.
+2. **Mouse-move handler not registered while window is alpha=0** — engine stops dispatching mouse events to fully-transparent windows. Fix: keep alpha >= 0.05 always (never fully 0); OR register a global mouse-move via `wndMgr` regardless of alpha.
+3. **Multiple auto-hide windows with independent timers** — Window A's `OnUpdate` fades; Window B's hotkey opens it. B's hotkey doesn't see A's `lastActivity`. Fix: shared `lastActivity` in interfacemodule; all auto-hide windows read from it.
+
+**Quick check:** Wait for window to fade. Press hotkey. If it opens then immediately fades again, root cause is #1.
+
+**See also:** `skills/m2ui/reference/anchors/23-auto-hide-chrome.md`; `skills/m2ui/reference/timer-patterns.md` section 3 (fade-timer).
+
+---
+
+## 28. "Compare-tooltip leaks second tooltip widget"
+
+**Likely root causes (ranked by frequency):**
+
+1. **`compareTooltip` not destroyed on Interface teardown** — `interfacemodule.MakeInterface` lazy-builds `self.tooltipItem.compareTooltip = uitooltip.ItemToolTip()` on first compare. Teardown destroys `tooltipItem` but forgets `compareTooltip`. Fix: `__DestroyDialogs` adds an explicit null-out for `tooltipItem.compareTooltip`.
+2. **Second tooltip created per hover, not lazy-once at first compare** — `OnOverInItem` creates a fresh `compareTooltip` widget; the prior instance orphans. Fix: lazy-build the secondary tooltip ONCE on first compare; subsequent compares reuse the instance via `SetInventoryItem`.
+3. **OverOutItem doesn't clear the second tooltip** — primary tooltipItem clears via `tooltipItem.HideToolTip()`, but `compareTooltip` lingers. Fix: `HideToolTip()` body hides BOTH widgets.
+
+**Quick check:** Hover items in inventory rapidly for 30 seconds (Alt held). Check `wndMgr.GetWidgetCount()` (or fork-equivalent). If count grows monotonically, root cause is #1 or #2.
+
+**See also:** `skills/m2ui/reference/anchors/22-compare-tooltip.md`; `skills/m2ui/reference/anchors/06-tooltip-bound.md`.
+
+---
+
 ## Debug snippets (appendix — not a symptom entry)
 
 The following snippets are useful when diagnosing unfamiliar UI bugs. Drop them in temporarily, remove before commit. They are NOT canonical patterns.

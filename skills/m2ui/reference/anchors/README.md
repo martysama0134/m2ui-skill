@@ -27,6 +27,11 @@ Anchors split into two categories:
 | Quest / NPC dialog (server text + close-on-distance) | `11-quest-npc-dialog.md` |
 | Storage / warehouse / mall (slots + password / gold) | `12-storage-warehouse.md` |
 | Craft / refine / item-enhancement (cube, dragon-soul) | `13-craft-refine-window.md` |
+| Search / filter dialog with results list | `17-search-filter-dialog.md` |
+| Mailbox / message inbox (two-pane list+detail) | `18-mailbox-two-pane.md` |
+| Daily reward grid / check-in calendar | `19-daily-reward-grid.md` |
+| Leaderboard / rank table | `20-leaderboard-table.md` |
+| Wheel / roulette / gacha | `21-wheel-roulette.md` |
 
 No exact match → pick CLOSEST. Do NOT skip Step 1.
 
@@ -38,6 +43,8 @@ No exact match → pick CLOSEST. Do NOT skip Step 1.
 | Slot↔slot or slot↔window drag-and-drop | `14-drag-and-drop.md` |
 | Driven by `net.Send` / `RecvX` packets | `15-network-coupled-flow.md` |
 | Multiple panes switched by tabs / radios | `16-tabbed-content.md` |
+| Compare-tooltip side-by-side | `22-compare-tooltip.md` |
+| Auto-hide chrome on inactivity timer | `23-auto-hide-chrome.md` |
 
 ### Load order
 
@@ -66,7 +73,7 @@ Every anchor follows the same section layout:
 
 ### Augmentor body-content convention
 
-Augmentor anchors (`05-feature-gated`, `14-drag-and-drop`, `15-network-coupled-flow`, `16-tabbed-content`) follow the same 8-section format but put their body content in section 6 (interfacemodule.py integration snippet) OR section 7 (Common variations) depending on which is the natural home:
+Augmentor anchors (`05-feature-gated`, `14-drag-and-drop`, `15-network-coupled-flow`, `16-tabbed-content`, `22-compare-tooltip`, `23-auto-hide-chrome`) follow the same 8-section format but put their body content in section 6 (interfacemodule.py integration snippet) OR section 7 (Common variations) depending on which is the natural home:
 
 - **Body in section 6** — when the augmentor is primarily an integration-time wiring (e.g., 05-feature-gated wraps the `if app.ENABLE_X:` guard around the import + instance creation; 14-drag-and-drop attaches/detaches via mouseModule at integration sites)
 - **Body in section 7** — when the augmentor is a state machine or call-flow that varies per consuming window (e.g., 15-network-coupled-flow's Send→Recv→setter trace; 16-tabbed-content's radio-group + Show/Hide variations per pane count)
