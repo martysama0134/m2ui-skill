@@ -4,6 +4,8 @@
 
 A window that should only exist (be importable, instantiable, accessible) when a feature flag is enabled. Use this for any feature that's experimental, fork-specific, or staged-rollout — the flag lives in `app.py` (C++ Python module) and gets toggled per build configuration. NOT for windows that are always present but conditionally hidden (use `Hide()` / `Show()` for runtime visibility). NOT for runtime A/B tests (a config-based check inside the window is more flexible than import-time gating).
 
+This is an AUGMENTOR — it layers a feature-gating wrapper onto any primary archetype (01/02/03/04/06/07-13). Body content lives in section 6.
+
 The pattern is a CALL-SITE pattern, not a window pattern. The underlying window class itself stays unaware of the flag — the gating happens in `interfacemodule.py` at five canonical points: import, init nullification, instance creation, destroy, and HideAllWindows.
 
 ## Source

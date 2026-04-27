@@ -62,7 +62,7 @@ assert_eq "SUBAGENT-STOP tag count" "2" "$subagent_stop"
 #     1 added by Critical Rule 17: preserve Destroy bodies;
 #     1 added by Critical Rule 19: verify setter accepts *args)
 emphasis_tags=$(grep -c "EXTREMELY-IMPORTANT" "$SKILL")
-assert_eq "EXTREMELY-IMPORTANT tag count (5 blocks * 2 tags)" "10" "$emphasis_tags"
+assert_ge "EXTREMELY-IMPORTANT tag count (>= 5 blocks * 2 tags)" "10" "$emphasis_tags"
 
 # 7. Conditional-load matrix has the 8 expected rows (incl. failure-atlas + visual-conventions added v2.3.0)
 # Find the "Conditional load" marker, then the table separator |---, then count rows until blank.

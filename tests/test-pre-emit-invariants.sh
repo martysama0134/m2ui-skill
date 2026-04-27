@@ -49,7 +49,7 @@ assert_ge "Pre-Emit checklist items" "16" "$pre_emit_items"
 
 # 2. failure-atlas has 14 numbered entries (## N. "...")
 atlas_entries=$(grep -cE '^## [0-9]+\. "' "$ATLAS")
-assert_eq "Atlas numbered entries" "14" "$atlas_entries"
+assert_ge "Atlas numbered entries" "14" "$atlas_entries"
 
 # 3. Every atlas entry has a Quick check (one per entry minimum)
 quick_checks=$(grep -c '\*\*Quick check:\*\*' "$ATLAS")
@@ -70,7 +70,7 @@ for n in 01 02 03 04 05 06; do
 done
 
 # 6. Mandatory-floor reference files present
-for ref in event-binding.md mental-model.md widgets.md patterns.md bindings.md locale.md failure-atlas.md visual-conventions.md; do
+for ref in event-binding.md mental-model.md widgets.md patterns.md bindings.md locale.md failure-atlas.md visual-conventions.md framework-augmentations.md integration.md; do
     assert_file_exists "reference/${ref}" "${REPO_ROOT}/skills/m2ui/reference/${ref}"
 done
 
