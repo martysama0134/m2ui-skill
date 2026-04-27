@@ -103,6 +103,19 @@ For each `localeInfo.X` / `uiScriptLocale.X` reference:
 - Module matches context: `localeInfo.X` in root `ui*.py`, `uiScriptLocale.X` in uiscript dict files. Mixing raises NameError/AttributeError (per failure-atlas entry 5).
 - For each new key referenced: locale entry is provided in the parent's emission. No silent missing-locale assumptions.
 
+### 9. Augmentor compliance (under-loading risk)
+
+For every emission, infer which augmentors SHOULD have been loaded based on the user's request and the generated code:
+
+- Generated code references `app.ENABLE_*` flag → `05-feature-gated` should have been loaded
+- Generated code uses `mouseModule.mouseController.AttachObject` / drag handlers → `14-drag-and-drop` should have been loaded
+- Generated code calls `net.Send*` or registers a `RecvX` handler → `15-network-coupled-flow` should have been loaded
+- Generated code uses radio_button group + Show/Hide content swap → `16-tabbed-content` should have been loaded
+
+If an augmentor SHOULD have been loaded but the parent agent did not load it (no cross-reference in the emission's preamble, no signs of the augmentor's body content patterns), flag as IMPORTANT finding: "Augmentor X under-load detected. Recommend reload + revise."
+
+This category exists because the 2-step decision tree's Step 2 is opt-in; agents under stress may skip Step 2 entirely. Reviewer is the safety net.
+
 ## Output format
 
 Produce a structured report. Top-level structure:

@@ -34,20 +34,39 @@ Detect the appropriate mode from the user's input:
 
 > **Symptom-first dispatch:** When the user reports a visible bug rather than asking for new code, load `skills/m2ui/reference/failure-atlas.md` BEFORE any anchor. Diagnose, then (if a fix means new code) load the relevant anchor.
 
-**Anchor selection** for new windows:
+**Anchor selection** for new windows — 2-step decision tree:
+
+**Step 1 — pick ONE primary archetype (the window's chrome):**
 
 | Window type | Anchor |
 |-------------|--------|
 | Modal yes/no/text dialog | `skills/m2ui/reference/anchors/01-simple-dialog.md` |
-| Board chrome + scrolling dynamic list | `skills/m2ui/reference/anchors/02-board-with-list.md` |
+| Board chrome + scrolling DYNAMIC list | `skills/m2ui/reference/anchors/02-board-with-list.md` |
 | Form: list of radio-buttons + Accept | `skills/m2ui/reference/anchors/03-list-selector.md` |
 | Custom 9-slice bordered panel | `skills/m2ui/reference/anchors/04-9slice-panel.md` |
+| Inventory-style with tooltips | `skills/m2ui/reference/anchors/06-tooltip-bound.md` |
+| Shop / exchange / trade | `skills/m2ui/reference/anchors/07-shop-exchange.md` |
+| Inventory / equipment grid | `skills/m2ui/reference/anchors/08-inventory-equipment.md` |
+| Options / settings | `skills/m2ui/reference/anchors/09-options-settings.md` |
+| Paginated slot grid | `skills/m2ui/reference/anchors/10-paginated-slot-grid.md` |
+| Quest / NPC dialog | `skills/m2ui/reference/anchors/11-quest-npc-dialog.md` |
+| Storage / warehouse / mall | `skills/m2ui/reference/anchors/12-storage-warehouse.md` |
+| Craft / refine / item-enhancement | `skills/m2ui/reference/anchors/13-craft-refine-window.md` |
+
+No exact match → pick CLOSEST. Do NOT skip Step 1.
+
+**Step 2 — pick zero or more augmentors (behaviors layered on top):**
+
+| Behavior | Anchor |
+|----------|--------|
 | Window guarded by `app.ENABLE_*` | `skills/m2ui/reference/anchors/05-feature-gated.md` |
-| Inventory-style window with tooltips | `skills/m2ui/reference/anchors/06-tooltip-bound.md` |
+| Slot↔slot or slot↔window drag-drop | `skills/m2ui/reference/anchors/14-drag-and-drop.md` |
+| Driven by `net.Send` / `RecvX` packets | `skills/m2ui/reference/anchors/15-network-coupled-flow.md` |
+| Multiple panes switched by tabs / radios | `skills/m2ui/reference/anchors/16-tabbed-content.md` |
 
 If no anchor matches exactly, pick the closest, copy its skeleton, swap the specifics. Do NOT invent layout from scratch.
 
-**Load discipline:** Read `skills/m2ui/reference/anchors/README.md` to choose the anchor, then load AT MOST ONE anchor file — EXCEPT `05-feature-gated.md`, which is a call-site wrapper that augments another anchor. Generating a flag-gated window means loading TWO anchors: 05 (gating pattern) + the underlying window-type anchor (01/02/03/04/06). Do not load all anchors unless the user's task is comparing anchors.
+**Load discipline:** Read `skills/m2ui/reference/anchors/README.md` to walk the 2-step decision tree, then load: (a) ONE primary archetype anchor (Step 1 result), plus (b) zero or more augmentor anchors (Step 2 results). Augmentors are: `05-feature-gated`, `14-drag-and-drop`, `15-network-coupled-flow`, `16-tabbed-content`. Loading multiple primaries is forbidden; loading multiple augmentors is allowed and common (e.g., a draggable inventory uses 08 + 14 + possibly 15 if server-driven). Same applies to widgets.md/locale.md/bindings.md/patterns.md — load only the section you need, not the whole file.
 
 For detailed mode-specific instructions:
 
@@ -122,3 +141,5 @@ If checklist passes: proceed. If any item fails: revise silently.
 ## After Code Generation
 
 Always provide an **interfacemodule.py integration snippet** showing import, instance creation, tooltip binding, toggle method, and destroy call.
+
+For the integration snippet shape and variations, load `skills/m2ui/reference/integration.md`. Every emission produces an integration snippet; the reference catalogs the structural pattern + lazy-init / gated-toggle / tooltip-binding variations.

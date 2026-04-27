@@ -327,6 +327,7 @@ import item
 import grp
 import localeInfo
 import uiScriptLocale
+from _weakref import proxy
 
 
 class ResultListWindow(ui.ScriptWindow):
@@ -378,16 +379,22 @@ class ResultListWindow(ui.ScriptWindow):
             import exception
             exception.Abort("ResultListWindow.LoadWindow.BindObject")
 
-        # Slot event wiring — the per-slot extra args (row, col) are passed via
-        # the event setter's trailing-args feature, NOT a self-capturing lambda.
+        # Slot event wiring -- per-slot extra args (row, col) need Pattern C
+        # (proxy lambda) because SlotWindow.Set*ItemEvent setters in canonical
+        # ui.py are 1-arg (see framework-augmentations.md "Setters known to
+        # lack *args"). Pattern B (ui.__mem_func__ + trailing args) would
+        # raise TypeError at runtime. The lambda's r=proxy(self) defeats the
+        # closure-on-self leak (event-binding.md Pattern C). The double-
+        # underscore method names auto-mangle inside this class scope, so
+        # the lambdas resolve correctly without the explicit _ClassName prefix.
         for row, materialRow in enumerate(self.materialSlots):
             for col, material in enumerate(materialRow):
-                material.SetOverInItemEvent(ui.__mem_func__(self.__OverInMaterialSlot), row, col)
-                material.SetSelectItemSlotEvent(ui.__mem_func__(self.__OnSelectMaterialSlot), row, col)
+                material.SetOverInItemEvent(lambda r=proxy(self), row=row, col=col: r.__OverInMaterialSlot(row, col))
+                material.SetSelectItemSlotEvent(lambda r=proxy(self), row=row, col=col: r.__OnSelectMaterialSlot(row, col))
                 material.SetOverOutItemEvent(ui.__mem_func__(self.__OverOutMaterialSlot))
 
         for row, resultSlot in enumerate(self.resultSlots):
-            resultSlot.SetOverInItemEvent(ui.__mem_func__(self.__OverInResultSlot), row)
+            resultSlot.SetOverInItemEvent(lambda r=proxy(self), row=row: r.__OverInResultSlot(row))
             resultSlot.SetOverOutItemEvent(ui.__mem_func__(self.__OverOutMaterialSlot))
 
         self.contentScrollbar.SetScrollStep(0.15)

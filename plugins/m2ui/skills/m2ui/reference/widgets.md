@@ -318,6 +318,26 @@ Also supports all `text` dict properties (fontsize, fontname, text_horizontal_al
 - `SetNumberMode()` -- restrict to numeric input
 - `SetIMEFlag(flag)` -- enable/disable IME
 
+#### Gotcha: IME composition vs OnIMEUpdate vs OnIMEReturn
+
+EditLine fires multiple IME events. Pick the right one for the use case:
+
+| Event | When | Use case |
+|-------|------|----------|
+| `OnIMEUpdate(self)` | Fires on every character typed/composed (incl. mid-IME composition) | Live filtering, character counter, password strength |
+| `OnIMEReturn(self)` | Fires when user presses Enter to commit | Submit form, fire search |
+| `OnIMEKeyDown(self, key)` | Fires on every keypress | Custom key handling (uncommon) |
+| `OnIMETab(self)` | Tab key | Custom tab nav |
+| `OnIMEEscape(self)` | Escape key | Cancel input, close window |
+
+Common bugs:
+
+- Reading `GetText()` inside `OnIMEUpdate` during IME composition (Korean / Japanese / Chinese input) returns the composed-but-uncommitted string. Validate against `len(GetText())` only after `OnIMEReturn` fires.
+- Calling `KillFocus()` inside `OnIMEReturn` mid-composition strands the in-flight IME state. Defer to `OnUpdate` next frame instead.
+- Not calling `KillFocus()` in `Close()` — IME continues routing to the now-hidden EditLine. Always pair `Show()`/`Hide()` with `SetFocus()`/`KillFocus()`.
+
+`input_limit` (the `SetMax(max)` setting) is enforced post-commit, not during composition. A maxlen-50 EditLine accepts a 100-char composition until the user presses commit; the engine truncates on commit. To enforce mid-composition, hook `OnIMEUpdate` and call `SetText(GetText()[:maxlen])`.
+
 ---
 
 ### editline_centered
@@ -534,6 +554,18 @@ Animated image that cycles through a sequence of frames.
 
 **Notes:** Calls `OnEndFrame()` when animation completes a cycle (override in subclass).
 
+#### Gotcha: Frame timing units
+
+`AniImage.SetDelay(delay_ms)` takes milliseconds (engine spec, not seconds). A `SetDelay(50)` cycles frames every 50 ms = 20 FPS. Common bug: assuming seconds, getting a 50-second per-frame animation.
+
+Loop behavior:
+- Default: loops indefinitely from frame 0 to last-loaded frame.
+- `AniImage.Stop()` halts on current frame.
+- `AniImage.Start()` resumes from current frame.
+- No "play once" mode in the canonical engine; emulate by checking frame index in `OnUpdate` (or `OnEndFrame` callback) and calling `Stop()` on the last frame.
+
+Frame array order: `AppendImage(path)` calls happen in playback order. Reordering = reorder the call sequence; no per-frame index API.
+
 ---
 
 ### mark
@@ -633,6 +665,23 @@ Auto-arranged grid of slots. Slots are laid out in rows and columns automaticall
 - `GetStartIndex()` -- get first slot index
 
 **Notes:** Typical `x_step`/`y_step` is 32 for standard item slots.
+
+#### Gotcha: SlotWindow vs GridSlotWindow
+
+Two slot widgets exist with overlapping APIs — pick by use case:
+
+| Need | Widget |
+|------|--------|
+| Free-position slots (item slots in shop, inventory cells laid out manually) | `SlotWindow` |
+| Auto-arranged grid (uniform cell size, auto-positioned by `SetGridSize`) | `GridSlotWindow` |
+
+Common bugs from confusion:
+
+- Calling `SetSlotSize(x, y, w, h)` on `GridSlotWindow` — fails silently; grid auto-sizes from `SetGridSize`. Use `SlotWindow` if you need per-slot positioning.
+- Calling `SetGridSize(rows, cols)` on `SlotWindow` — no method by that name; use individual `AppendSlot` calls.
+- Mixing the two in nested layouts — works but confuses agents reading the code; prefer one or the other consistently per window.
+
+Both share `SetSelectItemSlotEvent`, `SetUnselectItemSlotEvent`, `SetUseSlotEvent`, `SetOverInItemEvent`, `SetOverOutItemEvent` — same callback wrapping per `event-binding.md`.
 
 ---
 
