@@ -71,6 +71,23 @@ The hex codes below are **community conventions** (the values appear consistentl
 
 Color format is `0xAARRGGBB`. Construct via `grp.GenerateColor(r, g, b, a)` for runtime coloring (each component 0.0-1.0).
 
+### Color hex format — `0xAARRGGBB` not `0xAABBGGRR`
+
+The engine reads color hex literals as `0xAARRGGBB`:
+
+| Byte | Channel |
+|------|---------|
+| Highest (bits 24-31) | Alpha |
+| Bits 16-23 | Red |
+| Bits 8-15 | Green |
+| Lowest (bits 0-7) | Blue |
+
+Common foot-gun: agents trained on `0xRRGGBBAA` (web/CSS-style) flip the channels and emit `0xFF0000FF` thinking "red with full alpha" — actually renders as full-alpha BLUE (BB=FF). Mnemonic: A-R-G-B reads alphabetically by channel, NOT by hex order.
+
+`grp.GenerateColor(r, g, b, a)` takes 0.0-1.0 floats per channel and outputs the correct `0xAARRGGBB` literal at runtime. Prefer this when constructing dynamic colors; avoids the channel-order foot-gun entirely.
+
+See failure-atlas entry 21 for the symptom (color renders as wrong channel) + diagnosis recipe.
+
 ## 5. Asset vocabulary
 
 - **`board`** — Engine widget. Renders standard window chrome (no asset path needed).

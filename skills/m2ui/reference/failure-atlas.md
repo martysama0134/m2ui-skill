@@ -239,6 +239,154 @@ When a user reports "X looks broken" instead of "fix this code", start here. Eac
 
 ---
 
+## 15. "Window position not persisted across login"
+
+**Likely root causes (ranked by frequency):**
+
+1. **`SetCenterPosition` called in `Open()` always** — every Open re-centers the window, ignoring last-known position. Fix: store `(x, y)` in a per-character settings file via `app.SaveSetting(key, value)` on close; restore via `app.LoadSetting(key, default)` on Open.
+2. **Window flagged `movable` but lacks save hook** — user drags the window to a new position; nothing persists the move. Fix: hook `OnMouseLeftButtonUp` (or fork-equivalent) to write the position to settings.
+3. **HideAllWindows on logout teardown drops position state** — interfacemodule-level cleanup zeroes out all instance state. Fix: persist settings BEFORE the teardown runs (in `Close()` not in `Destroy()`).
+
+**Quick check:** Drag the window, log out, log back in. If the window opens at `SetCenterPosition` default, root cause is #1 or #3. If it opens at `(0,0)`, root cause is #2.
+
+**See also:** `skills/m2ui/reference/anchors/05-feature-gated.md` for app.* API discipline; bindings.md `app.SaveSetting` / `app.LoadSetting`.
+
+---
+
+## 16. "Drag stops mid-op when source slot hides"
+
+**Likely root causes (ranked by frequency):**
+
+1. **Source window's `Hide()` called during drag** — engine cancels in-flight drags when the source becomes invisible. Fix: in `Hide()`, check `mouseModule.mouseController.isAttached()` and call `DeattachObject()` first.
+2. **Drag started from a slot whose parent window closes via OnUpdate distance check** — the auto-close pattern (patterns.md section 7.15) hides the parent mid-drag. Fix: gate the OnUpdate close on `not mouseController.isAttached()`.
+3. **Drag callback raised an exception** — `SetCallBack`'s handler crashed; engine silently drops the drag. Fix: wrap drop-handler body in try/except + `dbg.TraceError(traceback.format_exc())`.
+
+**Quick check:** Add `dbg.TraceError("hide called: attached=" + str(mouseController.isAttached()))` to `Hide()`. Drag, then close the window. If trace fires `attached=True`, root cause is #1 or #2.
+
+**See also:** `skills/m2ui/reference/anchors/14-drag-and-drop.md`; bindings.md `mouseModule.mouseController`.
+
+---
+
+## 17. "ItemTooltip references wrong item after rebind"
+
+**Likely root causes (ranked by frequency):**
+
+1. **`SetItemToolTip` called once at `__LoadWindow` with stale ref** — tooltip widget binds to the slot present at load time; later slot reassignment doesn't re-bind. Fix: re-call `SetItemToolTip` after every slot-content change.
+2. **Tooltip cached state from previous hover** — `OnOverInItem` sets internal cache; same item ID at a different slot pulls cached visuals. Fix: call `tooltipItem.ClearToolTip()` before showing the new item.
+3. **`tooltipItem` is shared across multiple windows** — interfacemodule-owned tooltip serves all windows; Window A binds it last, Window B opens and tries to use the still-bound state. Fix: each window calls `SetItemToolTip(self.tooltipItem)` in its own `__LoadWindow`.
+
+**Quick check:** Hover slot 0 (item A) → close window → reopen → hover slot 0 (now item B). If tooltip shows A's stats, root cause is #1 or #2.
+
+**See also:** `skills/m2ui/reference/anchors/06-tooltip-bound.md`; failure-atlas entry 9 (tooltip stuck after close — related but distinct).
+
+---
+
+## 18. "EditLine maxlen ignored under IME composition"
+
+**Likely root causes (ranked by frequency):**
+
+1. **Engine maxlen enforced post-commit only** — IME composition (Korean/Japanese/Chinese) accepts unbounded length until commit; engine truncates on commit. By that point the user already typed past the limit. Fix: hook `OnIMEUpdate` and call `SetText(GetText()[:maxlen])` to truncate live.
+2. **Pasted text bypasses maxlen** — engine paste path skips the IME maxlen check. Fix: hook the paste event (fork-specific name; grep `OnIMEPaste` or `OnPaste`) and truncate.
+
+**Quick check:** Enable IME (system tray → Korean/Japanese/Chinese), type more than maxlen characters in the EditLine. If the field accepts them all and only truncates on commit, root cause is #1.
+
+**See also:** `skills/m2ui/reference/widgets.md` EditLine IME gotcha subsection.
+
+---
+
+## 19. "Grid slot click selects wrong cell (off-by-one)"
+
+**Likely root causes (ranked by frequency):**
+
+1. **`int()` vs `//` on cell-index math** — `(mouse_x - grid_origin_x) / cell_width` returns a float in py2 (when cell_width is int) or float in py3; converting via `int()` truncates and drops fractional. Fix: use `//` (integer division) explicitly.
+2. **Grid origin offset not subtracted before division** — agent forgot to subtract `grid_origin_x` first; `mouse_x // cell_width` returns global-coord cell which is wrong. Fix: `(mouse_x - grid_origin_x) // cell_width`.
+3. **Cell width computed off `parent.width / cols`** — division rounds; (parent.width=200, cols=5) gives cell_width=40 BUT (parent.width=201, cols=5) gives cell_width=40 still — last column overflows. Fix: use `parent.width // cols` and add a sentinel for the last column.
+
+**Quick check:** Click each cell of the grid in sequence. Print `dbg.TraceError("clicked: " + str(computed_index))`. If trace shows wrong index for cells near grid edges, root cause is #1 or #2.
+
+**See also:** `skills/m2ui/reference/widgets.md` SlotWindow vs GridSlotWindow gotcha; patterns.md section 7.5 paginated slot grid.
+
+---
+
+## 20. "Sound on button never plays"
+
+**Likely root causes (ranked by frequency):**
+
+1. **Asset path missing or wrong** — `snd.PlaySound("sound/ui/click.wav")` requires the file at `D:\ymir work\sound\ui\click.wav` (case-sensitive on Linux server). Fix: verify with Glob; lowercase the path; confirm `.wav` extension.
+2. **Sound module not imported** — `import snd` missing at top of root file. Fix: add the import.
+3. **`snd.PlaySound` on a button without a callback wire** — agent put PlaySound at the wrong scope (e.g., in `__LoadWindow` directly, fires once on load). Fix: call PlaySound from inside the button's `SetEvent` callback.
+4. **Audio disabled in client settings** — user turned off UI sound globally. Fix: not a code bug; check the client's settings dialog.
+
+**Quick check:** Add `dbg.TraceError("PlaySound called: " + path)` next to the `snd.PlaySound` call. Click the button. If trace fires but no sound, root cause is #1, #2, or #4. If trace doesn't fire, root cause is #3.
+
+**See also:** bindings.md `snd` module.
+
+---
+
+## 21. "ARGB/RGBA channel swap (color renders as wrong channel)"
+
+**Likely root causes (ranked by frequency):**
+
+1. **`0xAARRGGBB` mistaken for `0xAABBGGRR`** — agent emitted color hex with red/blue swapped. Fix: A-R-G-B reads alphabetically; cross-check the bytes.
+2. **`0xRRGGBBAA` (web-style) used directly** — agent applied CSS-style channel order; engine reads the literal as `0xAARRGGBB`, putting the alpha byte where red should be. Fix: convert from web-style: web `0xRRGGBBAA` = engine `0x{AA}{RR}{GG}{BB}` — rotate the alpha byte to the front.
+3. **`grp.GenerateColor(r, g, b, a)` arg order swapped** — agent wrote `(a, r, g, b)` thinking alpha-first matches the literal. Fix: `grp.GenerateColor` is `(r, g, b, a)` in 0.0-1.0 floats.
+
+**Quick check:** Set the color to `0xFF0000FF` (intended: red with alpha=full). If it renders as blue, root cause is #1 or #2. If it renders correctly as red, the issue is elsewhere.
+
+**See also:** `skills/m2ui/reference/visual-conventions.md` Color hex format subsection.
+
+---
+
+## Debug snippets (appendix — not a symptom entry)
+
+The following snippets are useful when diagnosing unfamiliar UI bugs. Drop them in temporarily, remove before commit. They are NOT canonical patterns.
+
+### Temporary `not_pick` removal
+
+When a click "isn't reaching" a button, suspect a sibling decorative widget without `not_pick` is intercepting. Temporarily comment out `"style": ("not_pick",)` on every decorative widget in the uiscript dict; the click that previously didn't reach should now go to the bottom-most widget. Identify the offender, then re-add `not_pick` only to the offender (NOT mass-removal).
+
+### Colored expanded_image rect-borders for visual debug
+
+Wrap any widget you want to visualize with a 1-pixel-thick `expanded_image` border (using a solid-color tile) to see the widget's actual rect on screen:
+
+```python
+debug_border = ui.ExpandedImageBox()
+debug_border.SetParent(self.suspectWidget.GetParent())
+debug_border.SetPosition(self.suspectWidget.GetGlobalPosition()[0],
+                         self.suspectWidget.GetGlobalPosition()[1])
+debug_border.LoadImage("d:/ymir work/ui/public/parameter_slot_3.sub")  # or any 1px-edge tile
+debug_border.SetRenderingRect(0, 0, 0, 0)
+debug_border.SetSize(self.suspectWidget.GetWidth(), self.suspectWidget.GetHeight())
+debug_border.SetAlpha(0.4)
+debug_border.Show()
+self.debug_border = debug_border  # store ref so it doesn't GC
+```
+
+Remove before commit. The border reveals whether the widget's rect is where you think it is (alignment / `all_align` re-anchor surprises).
+
+### `dbg.TraceError` rect-print one-liner
+
+When alignment is suspected, print every ancestor's resolved rect:
+
+```python
+def _DebugRect(self):
+    w = self
+    while w:
+        try:
+            x, y = w.GetGlobalPosition()
+            dbg.TraceError("rect: " + str(type(w).__name__) +
+                           " x=" + str(x) + " y=" + str(y) +
+                           " w=" + str(w.GetWidth()) +
+                           " h=" + str(w.GetHeight()))
+        except:
+            pass
+        w = w.GetParent()
+```
+
+Call from anywhere a widget's resolved position is suspect. Walks up the parent chain, prints every level. Most alignment bugs reveal themselves in the first 2-3 levels of output.
+
+---
+
 ## Cross-references
 
 - Callback wrapping → `skills/m2ui/reference/event-binding.md`

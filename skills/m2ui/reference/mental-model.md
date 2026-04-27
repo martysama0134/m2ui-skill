@@ -28,6 +28,32 @@ There are no reusable components in the React sense. Each window is its own root
 
 **Rule of thumb:** if you want a "reusable card component," it's a class that constructs widgets in its `__init__`, not a JSX function.
 
+### InsertChild vs SetParent — when to use each
+
+Both wire a child widget into a parent, but the API contract differs:
+
+| Method | Effect | When to use |
+|--------|--------|-------------|
+| `child.SetParent(parent)` | Sets parent ref + appends to parent's `Children` list. Z-order = call order. | Default. Prefer this. |
+| `parent.InsertChild(name, child)` | Same as `SetParent` but ALSO registers the child by name in `parent.ElementDictionary` for `GetChild(name)` lookup. | When you need named lookup later (e.g., a uiscript-loaded child you'll fetch by name in `__LoadWindow`). |
+
+Most code uses `SetParent` because GetChild lookup is rarely needed in code-only windows. Uiscript-loaded windows get named lookup for free — `LoadScriptFile` calls `InsertChild` internally.
+
+Common bug: calling `InsertChild` with a name that conflicts with another sibling's name → second registration silently overwrites the first; `GetChild(name)` returns the second only. Use unique names within a parent's children.
+
+### SetTop + "float" flag interaction
+
+`SetTop()` raises a window above siblings, BUT only within the float layer. The engine has two layers:
+
+1. **Default layer** — non-float windows. Z-order = SetParent call order.
+2. **Float layer** — windows with `"float"` style flag. Drawn on top of all default-layer windows. SetTop within this layer re-orders.
+
+Consequence: `myWindow.SetTop()` on a non-float window does NOTHING visible — the default-layer ordering is fixed. To make a window raisable, declare `"style": ("float",)` (or include `"float"` in its style tuple) in uiscript.
+
+Common bug: a modal dialog without the `float` flag refuses to come to the front when `SetTop` is called. Diagnosis: check uiscript's root-level `"style"` tuple; add `"float"`.
+
+See failure-atlas entry 1 cause #4 ("z-buried under another window") for the symptom-side write-up.
+
 ## 3. State model
 
 There is no reactive state. State lives on `self` as instance vars. Updates require explicit widget setter calls.
