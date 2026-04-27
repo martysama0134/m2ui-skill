@@ -61,7 +61,7 @@ step1_rows=$(awk '
     f && /`[0-9][0-9]-.*\.md`/{c++}
     END{print c+0}
 ' "$README")
-assert_ge "README Step 1 archetype rows" "17" "$step1_rows"
+assert_ge "README Step 1 archetype rows" "18" "$step1_rows"
 
 # 4. README Step 2 has >= 6 augmentor rows (4 from Phase A + 2 new in Phase B)
 step2_rows=$(awk '
