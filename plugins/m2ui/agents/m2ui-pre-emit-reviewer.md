@@ -111,6 +111,11 @@ For every emission, infer which augmentors SHOULD have been loaded based on the 
 - Generated code uses `mouseModule.mouseController.AttachObject` / drag handlers → `14-drag-and-drop` should have been loaded
 - Generated code calls `net.Send*` or registers a `RecvX` handler → `15-network-coupled-flow` should have been loaded
 - Generated code uses radio_button group + Show/Hide content swap → `16-tabbed-content` should have been loaded
+- Generated code creates a second `ItemToolTip` (`compareTooltip = ...`) or references `item.GetCompareIndex` / `app.IsPressed(app.DIK_LALT)` for tooltip purposes → `22-compare-tooltip` should have been loaded
+- Generated code has an `OnUpdate` body that mutates `self.alpha` / calls `SetAlpha` based on a `lastActivity` / idle-time variable → `23-auto-hide-chrome` should have been loaded
+- Generated code has an `OnUpdate` body that compares against `self.lastSearchTime` / disables a Search button on cooldown → cross-link `timer-patterns.md` section 4 (check-interval)
+
+If a generated emission shows shape too close to a single source's specific identifiers (rare but possible when the parent agent under-normalized during clean-room synthesis), flag as IMPORTANT finding: "Generated code shape resembles the source's specific phrasing. Recommend rewriting from the m2ui house-style template (proxy lambdas, generic class names, placeholder packet APIs)."
 
 If an augmentor SHOULD have been loaded but the parent agent did not load it (no cross-reference in the emission's preamble, no signs of the augmentor's body content patterns), flag as IMPORTANT finding: "Augmentor X under-load detected. Recommend reload + revise."
 

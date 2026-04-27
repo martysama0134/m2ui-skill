@@ -41,6 +41,7 @@ Read these reference files (paths relative to repo root):
 - `skills/m2ui/reference/visual-conventions.md` for chrome / archetype / palette when visual style matters
 - `skills/m2ui/reference/framework-augmentations.md` when emitting Pattern B with extra args (Critical Rule 19)
 - `skills/m2ui/reference/integration.md` after the window is built — for the integration snippet shape
+- `skills/m2ui/reference/timer-patterns.md` when window has an OnUpdate body (animation, polling, fade, daily-event timing)
 
 Generate:
 1. The uiscript file (if script-backed) or `__LoadDialog` method (if code-only)

@@ -58,6 +58,7 @@ Based on detected mode, read the corresponding mode file from `modes/` directory
 | User describes a visible symptom ("X looks broken", "click does nothing", "leak after closing") | `reference/failure-atlas.md` — jump to the matching symptom heading FIRST, before loading anchors |
 | Composing a window from scratch where the visual style/sizing matters | `reference/visual-conventions.md` — pick archetype + chrome + palette before coding |
 | Generated a window and need to wire it into the main interface | `reference/integration.md` (always — runs after every emission) |
+| Window has an OnUpdate body (animation / polling / fade / daily-event timing) | `reference/timer-patterns.md` |
 
 **Anchor selection** — when generating a window from scratch, follow the 2-step decision tree.
 
@@ -77,6 +78,11 @@ Based on detected mode, read the corresponding mode file from `modes/` directory
 | Quest / NPC dialog (server text + close-on-distance) | `reference/anchors/11-quest-npc-dialog.md` |
 | Storage / warehouse / mall (slots + password / gold) | `reference/anchors/12-storage-warehouse.md` |
 | Craft / refine / item-enhancement (cube, dragon-soul) | `reference/anchors/13-craft-refine-window.md` |
+| Search / filter dialog with results list | `reference/anchors/17-search-filter-dialog.md` |
+| Mailbox / message inbox (two-pane list+detail) | `reference/anchors/18-mailbox-two-pane.md` |
+| Daily reward grid / check-in calendar | `reference/anchors/19-daily-reward-grid.md` |
+| Leaderboard / rank table (fixed-column rows) | `reference/anchors/20-leaderboard-table.md` |
+| Wheel / roulette / gacha (time-based animation) | `reference/anchors/21-wheel-roulette.md` |
 
 No exact match → pick CLOSEST. Do NOT skip Step 1.
 
@@ -88,12 +94,14 @@ No exact match → pick CLOSEST. Do NOT skip Step 1.
 | Slot↔slot or slot↔window drag-and-drop | `reference/anchors/14-drag-and-drop.md` |
 | Driven by `net.Send` / `RecvX` packets | `reference/anchors/15-network-coupled-flow.md` |
 | Multiple panes switched by tabs / radios | `reference/anchors/16-tabbed-content.md` |
+| Compare-tooltip side-by-side (equipped vs hovered) | `reference/anchors/22-compare-tooltip.md` |
+| Auto-hide chrome on inactivity timer | `reference/anchors/23-auto-hide-chrome.md` |
 
 **Load order:** read primary FIRST, then augmentors in order. Augmentors layer on top — they DO NOT override the primary's lifecycle/structure.
 
 **Conflict tie-breaker:** when two archetypes seem to fit, pick the one matching the window's CHROME (visual structure), not its DATA (data shape is augmentor territory). Example: "tabbed inventory" → primary `08-inventory-equipment` + augmentor `16-tabbed-content`; NOT `16-tabbed-content` alone.
 
-**Load discipline:** Read `reference/anchors/README.md` to walk the 2-step decision tree, then load: (a) ONE primary archetype anchor (Step 1 result), plus (b) zero or more augmentor anchors (Step 2 results). Augmentors are: `05-feature-gated`, `14-drag-and-drop`, `15-network-coupled-flow`, `16-tabbed-content`. Loading multiple primaries is forbidden; loading multiple augmentors is allowed and common (e.g., a draggable inventory uses 08 + 14 + possibly 15 if server-driven). Same applies to widgets.md/locale.md/bindings.md/patterns.md — load only the section you need, not the whole file.
+**Load discipline:** Read `reference/anchors/README.md` to walk the 2-step decision tree, then load: (a) ONE primary archetype anchor (Step 1 result), plus (b) zero or more augmentor anchors (Step 2 results). Augmentors are: `05-feature-gated`, `14-drag-and-drop`, `15-network-coupled-flow`, `16-tabbed-content`, `22-compare-tooltip`, `23-auto-hide-chrome`. Loading multiple primaries is forbidden; loading multiple augmentors is allowed and common (e.g., a draggable inventory uses 08 + 14 + possibly 15 if server-driven). Same applies to widgets.md/locale.md/bindings.md/patterns.md — load only the section you need, not the whole file.
 
 > **Symptom-first dispatch:** When the user reports a visible bug rather than asking for new code, load `reference/failure-atlas.md` BEFORE any anchor. Diagnose, then (if a fix means new code) load the relevant anchor.
 

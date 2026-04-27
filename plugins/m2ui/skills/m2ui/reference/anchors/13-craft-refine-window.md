@@ -462,6 +462,164 @@ def OnRefineInformation(targetItemPos, nextGradeItemVnum, cost, prob, refineType
 3. **Free-cost refine** (no cost text, no warning dialog) — drop `costText` from uiscript, drop the `OpenQuestionDialog` Accept-skip logic. Useful for quest-completion windows that present a refine UI without the destruction warnings.
 4. **Drag-in material insertion** — instead of a server-pushed material list, accept dragged items into a material slot. Layer augmentor `14-drag-and-drop` and add `OnSelectEmptySlot` handlers on the material slots that consume `mouseModule.mouseController.GetAttachedItemIndex()`. Useful for socket-attachment dialogs.
 5. **Result-preview without tooltip** — for refines where the result is a flat icon (no stats), drop the `uiToolTip.ItemToolTip` and use a plain `ui.ImageBox` with `item.GetIconImageFileName(nextGradeItemVnum)`. Smaller dialog, faster open. Suitable for cosmetic-only refines.
+6. **Multi-input combination (3+ material slots)** — for windows where the player drops 3+ different materials into a fixed-position grid and the result depends on which slots are filled. Distinct from variation 1 (which has fixed input + scroll item). Variation 6 has a SET of named slots (e.g., BASE, MEDIUM, MATERIAL) that each receive a material drop, with an `IsFilledAllSlots()` predicate that gates the Accept button + result-preview request. Server pushes a preview vnum once the trio is complete; commit packet sends the three slot positions:
+
+   ```python
+   class ItemCombinationWindow(ui.ScriptWindow):
+
+       SLOT_BASE = 0
+       SLOT_MEDIUM = 1
+       SLOT_MATERIAL = 2
+       SLOT_COUNT = 3
+
+       def __Initialize(self):
+           # ... base 13 anchor init ...
+           self.materialSlots = [None] * self.SLOT_COUNT
+           self.combinationVnum = 0
+           self.previewCost = 0
+           self.isPreviewPending = False
+           self.bgIdle = None
+           self.bgReady = None
+
+       def IsFilledAllSlots(self):
+           return all(s is not None for s in self.materialSlots)
+
+       def __IsAlreadyInOtherSlot(self, attachedSlotPos):
+           # Reject duplicate inventory-slot drops: if the player drags the
+           # same inventory slot into a second comb slot, the commit packet
+           # would refer to the same source twice and the server would
+           # consume it twice. Caller deattaches so the engine returns the
+           # ghost icon to the inventory.
+           for index, current in enumerate(self.materialSlots):
+               if current is None:
+                   continue
+               if current[0] == attachedSlotPos:
+                   return True
+           return False
+
+       def __ResetPreviewState(self):
+           # Whenever a slot changes (drop, replace, clear), discard the
+           # prior server preview so OnAccept cannot commit against stale
+           # combinationVnum.
+           self.combinationVnum = 0
+           self.previewCost = 0
+           self.isPreviewPending = False
+           self.RefreshResultPreview()
+           self.__RefreshBackgroundState()
+
+       def OnSelectEmptySlot(self, slotIndex):
+           if not mouseModule.mouseController.isAttached():
+               return
+           attachedSlotPos = mouseModule.mouseController.GetAttachedSlotNumber()
+           attachedItemIndex = mouseModule.mouseController.GetAttachedItemIndex()
+           if not self.__CanAttachToCombSlot(slotIndex, attachedItemIndex):
+               mouseModule.mouseController.DeattachObject()
+               return
+           if self.__IsAlreadyInOtherSlot(attachedSlotPos):
+               mouseModule.mouseController.DeattachObject()
+               return
+           self.materialSlots[slotIndex] = (attachedSlotPos, attachedItemIndex)
+           self.RefreshSlotIcons()
+           mouseModule.mouseController.DeattachObject()
+           # Slot composition changed -- invalidate any prior preview so the
+           # Accept button cannot commit against stale state.
+           self.__ResetPreviewState()
+           if self.IsFilledAllSlots():
+               self.RequestResultPreview()
+
+       def OnSelectItemSlot(self, slotIndex):
+           # Click on a filled comb slot clears it. Re-invalidate the
+           # preview state so Accept reflects the new composition.
+           if self.materialSlots[slotIndex] is None:
+               return
+           self.materialSlots[slotIndex] = None
+           self.RefreshSlotIcons()
+           self.__ResetPreviewState()
+
+       def RequestResultPreview(self):
+           if self.isPreviewPending:
+               return
+           self.isPreviewPending = True
+           slotPosList = [pos for pos, _ in self.materialSlots]
+           # TODO: verify net.SendCombinationPreview exists in your fork (bindings.md).
+           net.SendCombinationPreview(slotPosList)
+
+       def OnRecvCombinationPreview(self, resultVnum, costYang):
+           # If the slot composition changed while the preview was in
+           # flight, IsFilledAllSlots may still be True but the preview is
+           # stale -- only honor previews matching the in-flight request.
+           if not self.isPreviewPending:
+               return
+           if not self.IsFilledAllSlots():
+               self.isPreviewPending = False
+               return
+           self.combinationVnum = int(resultVnum)
+           self.previewCost = int(costYang)
+           self.isPreviewPending = False
+           self.RefreshResultPreview()
+           self.__RefreshBackgroundState()
+
+       def __RefreshBackgroundState(self):
+           ready = self.IsFilledAllSlots() and self.combinationVnum != 0 and not self.isPreviewPending
+           if ready:
+               if self.bgReady:
+                   self.bgReady.Show()
+               if self.bgIdle:
+                   self.bgIdle.Hide()
+           else:
+               if self.bgReady:
+                   self.bgReady.Hide()
+               if self.bgIdle:
+                   self.bgIdle.Show()
+
+       def OnAccept(self):
+           if not self.IsFilledAllSlots():
+               chat.AppendChat(chat.CHAT_TYPE_INFO, localeInfo.COMB_NOT_ALL_SLOTS_FILLED)
+               return
+           if self.combinationVnum == 0:
+               return
+           if self.isPreviewPending:
+               # Server preview not back yet -- block commit so we never
+               # commit against an unconfirmed combination.
+               return
+           # Re-validate every slot's inventory-side vnum: the player may
+           # have moved or consumed the source item between drop and
+           # accept. If the inventory no longer holds the expected vnum at
+           # the recorded slot pos, refuse the commit.
+           for slotPos, expectedVnum in self.materialSlots:
+               if player.GetItemIndex(slotPos) != expectedVnum:
+                   chat.AppendChat(chat.CHAT_TYPE_INFO, localeInfo.COMB_INVENTORY_CHANGED)
+                   self.__ResetSlotsAndPreview()
+                   return
+           # Question-dialog confirm before destroying materials.
+           popup = uiCommon.QuestionDialog2()
+           popup.SetText1(localeInfo.COMB_WILL_REMOVE_MATERIAL)
+           popup.SetText2(localeInfo.COMB_IS_CONTINUE_PROCESS)
+           popup.SetAcceptEvent(ui.__mem_func__(self.__OnAcceptConfirmed))
+           popup.SetCancelEvent(ui.__mem_func__(self.__OnAcceptCancelled))
+           popup.Open()
+           self.confirmDialog = popup
+
+       def __OnAcceptConfirmed(self):
+           if not self.IsFilledAllSlots():
+               return
+           if self.combinationVnum == 0 or self.isPreviewPending:
+               return
+           slotPosList = [pos for pos, _ in self.materialSlots]
+           # TODO: verify net.SendCombinationCommit exists in your fork (bindings.md).
+           net.SendCombinationCommit(slotPosList)
+           self.Close()
+
+       def __ResetSlotsAndPreview(self):
+           for index in xrange(self.SLOT_COUNT):
+               self.materialSlots[index] = None
+           self.RefreshSlotIcons()
+           self.__ResetPreviewState()
+   ```
+
+   Use this variation when the window is a "drop materials, see preview, commit" 3-slot pattern (item-combination, attribute-craft, scroll-bundle). Distinct from variation 1's "scroll + target" 2-slot pattern. The `__RefreshBackgroundState` helper toggles between an idle-state and a ready-state background image so the user has a visual cue that the slot trio is complete and the server has confirmed the preview.
+
+   Cross-link: `14-drag-and-drop.md` (drop callback wiring), `15-network-coupled-flow.md` (preview request-response).
 
 ## Don't copy these obsolete bits
 
