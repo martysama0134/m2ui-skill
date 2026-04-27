@@ -29,7 +29,7 @@ Same as augmented archetype. Network coupling is purely a class-side concern; ui
 Augmentor-only decoration: the `net.Send*` call sites in the window's button callbacks, the setter methods that get called from `interfacemodule.OperationX(...)` (which `networkmodule.MainStream` calls), and the defensive guards.
 
 ```python
-# Source-side: button click → net.Send.
+# Source-side: button click -> net.Send.
 def OnAcceptButtonClicked(self):
     # Local validation BEFORE send (saves round-trip on obvious errors).
     if not self.targetItemPos:
@@ -42,7 +42,7 @@ def OnAcceptButtonClicked(self):
     # a Recv handler that calls back into this window.
     net.SendBuildPrivateShopPacket(self.title)
 
-    # Optional optimistic close — for fire-and-forget commands.
+    # Optional optimistic close -- for fire-and-forget commands.
     # For request-response, wait for the Recv handler to call .Close().
     self.Close()
 
@@ -157,7 +157,7 @@ Server-driven refresh independent of any specific client request.
 ```python
 class MainStream:
     def OnShopUpdate(self, slot, vnum, count):
-        # Server updated this shop slot — could be any client's purchase
+        # Server updated this shop slot -- could be any client's purchase
         # or a server-side stock change. Refresh anyone watching.
         shop.SetItemData(slot, vnum, count)
         if self.interface:

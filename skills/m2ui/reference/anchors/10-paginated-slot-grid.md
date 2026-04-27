@@ -322,7 +322,7 @@ class PrivateShopBuilder(ui.ScriptWindow):
         self.priceInputBoard.targetSlotPos = selectedSlotPos
 
     def OnSelectItemSlot(self, selectedSlotPos):
-        # Click on a staged slot — remove from stock.
+        # Click on a staged slot -- remove from stock.
         if mouseModule.mouseController.isAttached():
             snd.PlaySound("sound/ui/loginfail.wav")
             mouseModule.mouseController.DeattachObject()

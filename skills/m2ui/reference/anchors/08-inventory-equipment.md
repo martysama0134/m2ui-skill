@@ -223,7 +223,7 @@ from _weakref import proxy
 
 class InventoryWindow(ui.ScriptWindow):
 
-    # Class defaults — guard reads before __init__ finishes
+    # Class defaults -- guard reads before __init__ finishes
     questionDialog = None
     tooltipItem = None
     isLoaded = 0
@@ -288,7 +288,7 @@ class InventoryWindow(ui.ScriptWindow):
             import exception
             exception.Abort("InventoryWindow.LoadWindow.BindObject")
 
-        # Item slot events (Pattern A — 1-arg setters per ui.py SlotWindow)
+        # Item slot events (Pattern A -- 1-arg setters per ui.py SlotWindow)
         wndItem.SetSelectEmptySlotEvent(ui.__mem_func__(self.SelectEmptySlot))
         wndItem.SetSelectItemSlotEvent(ui.__mem_func__(self.SelectItemSlot))
         wndItem.SetUnselectItemSlotEvent(ui.__mem_func__(self.UseItemSlot))
@@ -309,7 +309,7 @@ class InventoryWindow(ui.ScriptWindow):
         dlgPickMoney.LoadDialog()
         dlgPickMoney.Hide()
 
-        # Money slot click — Pattern A (no extra args).
+        # Money slot click -- Pattern A (no extra args).
         self.wndMoneySlot.SetEvent(ui.__mem_func__(self.OpenPickMoneyDialog))
 
         # Inventory tab buttons (SAFE_SetEvent = Pattern E with index arg).
@@ -457,9 +457,13 @@ class InventoryWindow(ui.ScriptWindow):
         snd.PlaySound("sound/ui/pick.wav")
 
     def OnDropToInventory(self):
-        # Cross-slot move within inventory.
-        attachedSlotPos = mouseModule.mouseController.GetAttachedSlotNumber()
-        net.SendItemUseToItemPacket(attachedSlotPos, attachedSlotPos)
+        # Right-click in inventory while holding an item from this same
+        # window deattaches without a server hit. Cross-slot moves are
+        # handled by SelectEmptySlot (which knows the destination slot
+        # via its selectedSlotPos param). This callback exists so the
+        # mouse module's "INVENTORY" callback dict has an entry; without
+        # it, mouseModule.RunCallBack falls through and silently drops.
+        mouseModule.mouseController.DeattachObject()
 
     def UseItemSlot(self, slotIndex):
         slotIndex = self.__InventoryLocalSlotPosToGlobalSlotPos(slotIndex)

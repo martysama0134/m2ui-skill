@@ -698,7 +698,7 @@ In `net.py` (server-driven open):
 def OnShop():
     interface = GetInterface()  # or however the fork accesses interface
     if interface:
-        vid = shop.GetVID()  # or similar — confirm shop binding
+        vid = shop.GetVID()  # or similar -- confirm shop binding
         interface.OpenShopDialog(vid)
 ```
 

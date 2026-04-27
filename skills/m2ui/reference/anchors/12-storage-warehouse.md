@@ -176,7 +176,7 @@ class SafeboxWindow(ui.ScriptWindow):
             import exception
             exception.Abort("SafeboxWindow.LoadWindow.LoadObject")
 
-        # Create slot grid programmatically — size determined at runtime
+        # Create slot grid programmatically -- size determined at runtime
         # via SetTableSize (called from ShowWindow after server tells us
         # the player's safebox capacity).
         wndItem = ui.GridSlotWindow()
@@ -257,7 +257,7 @@ class SafeboxWindow(ui.ScriptWindow):
             button.SetWindowVerticalAlignBottom()
             button.SetPosition(pos, 85)
             button.SetText(text)
-            # Pattern B: SetEvent(event, *args) — RadioButton.SetEvent
+            # Pattern B: SetEvent(event, *args) -- RadioButton.SetEvent
             # accepts *args per ui.py. If fork's RadioButton.SetEvent is
             # 1-arg, augment ui.py OR use Pattern C lambda fallback.
             button.SetEvent(ui.__mem_func__(self.SelectPage), i)

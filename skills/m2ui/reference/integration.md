@@ -199,10 +199,10 @@ moves out of `MakeInterface` and into the toggle method:
 
 ```python
 def __init__(self):
-    self.wndMyFeature = None  # Point 2 — set None upfront
+    self.wndMyFeature = None  # Point 2 -- set None upfront
 
 def MakeInterface(self):
-    pass  # Point 3 — no construction here
+    pass  # Point 3 -- no construction here
 
 def ToggleMyFeatureWindow(self):
     if not self.wndMyFeature:
@@ -229,7 +229,7 @@ Alternative to Variation 1. The window is constructed unconditionally;
 the flag check lives only at the toggle site:
 
 ```python
-# Points 1, 2, 3, 7, 8 — no flag check
+# Points 1, 2, 3, 7, 8 -- no flag check
 import uiMyFeature
 
 self.wndMyFeature = None  # in __init__

@@ -106,6 +106,30 @@ for f in "${ANCHORS_DIR}"/[0-9][0-9]-*.md; do
     fi
 done
 
+# 9. Mirror-list comparison: SKILL.md / anchors/README.md / rules/m2ui-activate.md
+# must reference the SAME set of NN-name.md anchor filenames in their Step 1
+# and Step 2 tables. Drift across mirrors causes non-Claude agents to load
+# the wrong anchor list.
+extract_anchor_refs() {
+    local file="$1"
+    grep -oE '[0-9][0-9]-[a-z0-9-]+\.md' "$file" | sort -u
+}
+
+skill_anchors=$(extract_anchor_refs "$SKILL")
+readme_anchors=$(extract_anchor_refs "$README")
+activate_anchors=$(extract_anchor_refs "$ACTIVATE")
+
+if [ "$skill_anchors" = "$readme_anchors" ] && [ "$readme_anchors" = "$activate_anchors" ]; then
+    anchor_count=$(echo "$skill_anchors" | wc -l | tr -d ' ')
+    echo "PASS: mirror-list agreement (3 files reference same $anchor_count anchors)"
+else
+    echo "FAIL: mirror-list drift detected. SKILL/README/activate disagree on archetype list."
+    echo "  SKILL.md anchors:    $(echo "$skill_anchors" | tr '\n' ' ')"
+    echo "  README.md anchors:   $(echo "$readme_anchors" | tr '\n' ' ')"
+    echo "  activate.md anchors: $(echo "$activate_anchors" | tr '\n' ' ')"
+    FAILURES=$((FAILURES + 1))
+fi
+
 echo
 echo "=== Result: $FAILURES failure(s) ==="
 exit "$FAILURES"

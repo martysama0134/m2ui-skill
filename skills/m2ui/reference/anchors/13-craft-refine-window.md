@@ -208,7 +208,7 @@ class RefineDialog(ui.ScriptWindow):
         else:
             self.successPercentage.Hide()
 
-        # Embedded tooltip — renders the result-item preview live inside the dialog.
+        # Embedded tooltip -- renders the result-item preview live inside the dialog.
         toolTip = uiToolTip.ItemToolTip()
         toolTip.SetParent(self)
         toolTip.SetFollow(False)
@@ -355,7 +355,7 @@ class RefineDialog(ui.ScriptWindow):
         dlgQuestion.SetAcceptEvent(ui.__mem_func__(self.Accept))
         dlgQuestion.SetCancelEvent(ui.__mem_func__(dlgQuestion.Close))
 
-        # Type-driven warning text — different refine flows have different
+        # Type-driven warning text -- different refine flows have different
         # consequences (destroy on fail, downgrade, etc.).
         if 3 == self.type:
             dlgQuestion.SetText1(localeInfo.REFINE_DESTROY_WARNING_WITH_BONUS_PERCENT_1)

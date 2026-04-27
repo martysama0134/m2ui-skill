@@ -29,75 +29,16 @@ Same as augmented archetype (07-shop-exchange, 08-inventory-equipment, 10-pagina
 
 ## Root class
 
-Augmentor-only decoration: the slot-event wiring + drop-handler methods that the augmented archetype's `__LoadWindow` (or equivalent) MUST call. Same body shape as 06-tooltip-bound's wiring section.
+Augmentor-only decoration: the augmented archetype's `__LoadWindow` (or equivalent) registers four slot events on its grid widget:
 
 ```python
-# In the augmented archetype's __LoadWindow / __LoadDialog:
 wndItem.SetSelectEmptySlotEvent(ui.__mem_func__(self.OnSelectEmptySlot))
 wndItem.SetSelectItemSlotEvent(ui.__mem_func__(self.OnSelectItemSlot))
 wndItem.SetUnselectItemSlotEvent(ui.__mem_func__(self.OnUnselectItemSlot))
 wndItem.SetUseSlotEvent(ui.__mem_func__(self.OnUseSlot))
 ```
 
-Plus the source-side handler (the slot the user clicks first):
-
-```python
-def OnSelectItemSlot(self, selectedSlotPos):
-    if mouseModule.mouseController.isAttached():
-        # Already holding an item — let the source-side cancellation fire
-        # via OnSelectEmptySlot in another window, OR cancel here.
-        return
-
-    globalSlotPos = self.__LocalPosToGlobalPos(selectedSlotPos)
-    itemIndex = player.GetItemIndex(globalSlotPos)
-    if 0 == itemIndex:
-        return
-
-    itemCount = player.GetItemCount(globalSlotPos)
-
-    # AntiFlag validation: prevent picking up un-droppable items.
-    item.SelectItem(itemIndex)
-    if item.IsAntiFlag(item.ANTIFLAG_GIVE):
-        # Item is bound; can't be moved out of inventory.
-        chat.AppendChat(chat.CHAT_TYPE_INFO, localeInfo.ITEM_CANNOT_DROP)
-        return
-
-    mouseModule.mouseController.AttachObject(
-        self,
-        player.SLOT_TYPE_INVENTORY,  # or whichever SLOT_TYPE_X the source is
-        globalSlotPos,
-        itemIndex,
-        itemCount,
-    )
-    mouseModule.mouseController.SetCallBack("INVENTORY", ui.__mem_func__(self.OnDropToInventory))
-    snd.PlaySound("sound/ui/pick.wav")
-```
-
-And the destination-side handler (the slot the user drops onto):
-
-```python
-def OnSelectEmptySlot(self, selectedSlotPos):
-    if not mouseModule.mouseController.isAttached():
-        return
-
-    attachedSlotType = mouseModule.mouseController.GetAttachedType()
-    attachedSlotPos = mouseModule.mouseController.GetAttachedSlotNumber()
-    attachedItemCount = mouseModule.mouseController.GetAttachedItemCount()
-
-    globalSlotPos = self.__LocalPosToGlobalPos(selectedSlotPos)
-
-    if attachedSlotType == player.SLOT_TYPE_INVENTORY:
-        # Inventory→inventory move (re-arrange).
-        net.SendItemMovePacket(attachedSlotPos, globalSlotPos, attachedItemCount)
-    elif attachedSlotType == player.SLOT_TYPE_SHOP:
-        # Buy from shop.
-        net.SendShopBuyPacket(attachedSlotPos)
-    elif attachedSlotType == player.SLOT_TYPE_SAFEBOX:
-        # Withdraw from safebox to inventory.
-        net.SendSafeboxCheckoutPacket(attachedSlotPos, globalSlotPos)
-
-    mouseModule.mouseController.DeattachObject()
-```
+Full handler bodies (`OnSelectItemSlot`, `OnSelectEmptySlot`, `OnDropToInventory`, `Hide` cancellation, right-click) live in section 6 below. Section 6 is the canonical body for this augmentor; do NOT duplicate the handlers in section 4 of consuming windows — the archetype anchors (07/08/10/12/13) wire them once in their own root class.
 
 ## Locale entries
 
@@ -126,7 +67,7 @@ class Interface(object):
         self.mouseController = None
 
     def MakeInterface(self):
-        # Create FIRST — before any window's __LoadWindow runs, since
+        # Create FIRST -- before any window's __LoadWindow runs, since
         # those windows reference mouseModule.mouseController via the
         # module-level singleton.
         if not mouseModule.mouseController:
@@ -173,7 +114,7 @@ class InventoryWindow(ui.ScriptWindow):
         # Same-window drop: cross-slot move within inventory.
         attachedSlotPos = mouseModule.mouseController.GetAttachedSlotNumber()
         # The destination slot is determined by where the engine fires
-        # the OnSelectEmptySlot — see Step 3.
+        # the OnSelectEmptySlot -- see Step 3.
 ```
 
 ### Step 3: Destination-side wiring (the window receiving the drop)
@@ -205,7 +146,7 @@ class SafeboxWindow(ui.ScriptWindow):
 ```python
 def Hide(self):
     # If the user closes this window while holding an item, the engine
-    # cancels the drag — but the cursor visual stays stuck. Defensive
+    # cancels the drag -- but the cursor visual stays stuck. Defensive
     # detach prevents the stuck-cursor failure-atlas entry 16.
     if mouseModule.mouseController.isAttached():
         if mouseModule.mouseController.GetAttachedOwner() is self:

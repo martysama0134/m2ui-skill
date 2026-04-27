@@ -199,7 +199,7 @@ class QuestDialog(ui.ScriptWindow):
         else:
             event.UpdateEventSet(self.descIndex, 0, 0)
 
-        # Distance polling — close when the player walks away from the NPC.
+        # Distance polling -- close when the player walks away from the NPC.
         # patterns.md section 7.15 documents this idiom.
         (x, y, z) = player.GetMainCharacterPosition()
         if abs(x - self.startX) > self.AUTO_CLOSE_DISTANCE or abs(y - self.startY) > self.AUTO_CLOSE_DISTANCE:

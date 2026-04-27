@@ -45,64 +45,33 @@ Same as augmented archetype, plus the `radio_button` widgets for the tab strip (
 
     "children" :
     (
-        { "name" : "Tab_01_Print", "type" : "text", "x" : 0, "y" : 0, "all_align" : "center", "text" : "I" },
+        { "name" : "Tab_01_Print", "type" : "text", "x" : 0, "y" : 0, "all_align" : "center", "text" : uiScriptLocale.TAB_PAGE_1_LABEL },
     ),
 }
 ```
 
-Repeat per tab with `Tab_02`, `Tab_03`, etc. The text "I", "II", "III" is canonical for inventory page tabs; use locale strings for category labels (Game/Audio/Display).
+Repeat per tab with `Tab_02`, `Tab_03`, etc. Canonical Metin2 inventory tabs typically render Roman numerals "I" / "II" / "III" — even those go through `uiScriptLocale.TAB_PAGE_N_LABEL` per Critical Rule 9 (no hardcoded user-visible strings). For category labels (Game / Audio / Display), the locale key is the category name itself. The Roman-numeral case is a glyph used as a label, not a UI ornament — locale wrapping costs little and keeps localization tooling consistent.
 
 ## Root class
 
-Augmentor-only decoration: the tab-button binding loop + tab-change handler. Same body shape as 14-drag-and-drop's slot-event wiring.
-
-```python
-# In the augmented archetype's __LoadWindow:
-self.tabButtons = []
-for i in xrange(TAB_COUNT):
-    btn = self.GetChild("Tab_%02d" % (i + 1))
-    btn.SAFE_SetEvent(self.OnTabChange, i)
-    self.tabButtons.append(btn)
-self.tabButtons[0].Down()  # Initial active tab
-
-# Plus tab content windows (created at MakeInterface or in __LoadWindow):
-self.tabContents = {
-    0: self.wndPage1,
-    1: self.wndPage2,
-    2: self.wndPage3,
-}
-self.OnTabChange(0)  # Show initial tab content
-
-def OnTabChange(self, idx):
-    # Toggle radio buttons.
-    for i, btn in enumerate(self.tabButtons):
-        if i == idx:
-            btn.Down()
-        else:
-            btn.SetUp()
-
-    # Swap content visibility.
-    for i, content in self.tabContents.items():
-        if i == idx:
-            content.Show()
-        else:
-            content.Hide()
-```
+Augmentor-only decoration: the augmented archetype keeps `self.tabButtons` (list of radio_button refs) and `self.tabContents` (dict of `{idx: contentWindow}`), plus an `OnTabChange(idx)` method that toggles `Down()`/`SetUp()` and `Show()`/`Hide()`. Full canonical pattern + N-tab loop variant + 3 other variations live in section 7 below. Section 7 is the canonical body for this augmentor; consuming windows pick the variation that matches their tab count and lazy-load needs.
 
 ## Locale entries
 
-Augmentor-specific tab labels (when tabs have user-visible names beyond Roman numerals):
+Augmentor-specific tab labels. Both the visible tab text AND the tooltip go through `uiScriptLocale` per Critical Rule 9:
 
 ```
 TAB_PAGE_1	Page 1
 TAB_PAGE_2	Page 2
+TAB_PAGE_1_LABEL	I
+TAB_PAGE_2_LABEL	II
 TAB_GAME	Game
 TAB_AUDIO	Audio
 TAB_DISPLAY	Display
 TAB_CONTROLS	Controls
 ```
 
-Override per consuming archetype.
+Override per consuming archetype. The `_LABEL` variants exist so the visible glyph can be localized (e.g., a fork might prefer "1"/"2" over "I"/"II").
 
 ## interfacemodule.py integration snippet
 
@@ -134,7 +103,41 @@ Most cases keep tab contents as inner widgets of the parent — no `interfacemod
 
 ## Common variations
 
-This is where the augmentor's body content lives — five canonical tab patterns that vary per consuming window.
+This is where the augmentor's body content lives — the canonical pattern + five variations that adapt it per consuming window.
+
+### Canonical pattern (Show/Hide content swap)
+
+The default shape: tabs swap entire content windows via Show/Hide. Pick this when each tab has a dedicated content window already constructed.
+
+```python
+# In the augmented archetype's __LoadWindow:
+self.tabButtons = []
+for i in xrange(TAB_COUNT):
+    btn = self.GetChild("Tab_%02d" % (i + 1))
+    btn.SAFE_SetEvent(self.OnTabChange, i)
+    self.tabButtons.append(btn)
+self.tabButtons[0].Down()
+
+# Tab content windows -- created at MakeInterface or in __LoadWindow:
+self.tabContents = {
+    0: self.wndPage1,
+    1: self.wndPage2,
+    2: self.wndPage3,
+}
+self.OnTabChange(0)
+
+def OnTabChange(self, idx):
+    for i, btn in enumerate(self.tabButtons):
+        if i == idx:
+            btn.Down()
+        else:
+            btn.SetUp()
+    for i, content in self.tabContents.items():
+        if i == idx:
+            content.Show()
+        else:
+            content.Hide()
+```
 
 ### Variation 1: Two tabs (inventory pages)
 

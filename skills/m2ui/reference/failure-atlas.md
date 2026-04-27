@@ -243,13 +243,13 @@ When a user reports "X looks broken" instead of "fix this code", start here. Eac
 
 **Likely root causes (ranked by frequency):**
 
-1. **`SetCenterPosition` called in `Open()` always** — every Open re-centers the window, ignoring last-known position. Fix: store `(x, y)` in a per-character settings file via `app.SaveSetting(key, value)` on close; restore via `app.LoadSetting(key, default)` on Open.
-2. **Window flagged `movable` but lacks save hook** — user drags the window to a new position; nothing persists the move. Fix: hook `OnMouseLeftButtonUp` (or fork-equivalent) to write the position to settings.
+1. **`SetCenterPosition` called in `Open()` always** — every Open re-centers the window, ignoring last-known position. Fix: persist `(x, y)` to a per-character settings store on close, restore on Open. The exact API varies per fork — `app.SaveSetting`/`LoadSetting` if the fork exposes it, otherwise a `constInfo` dict written to disk via `playerSettingModule` or a fork-specific helper. Grep the fork for "SaveSetting" / "settings.txt" / similar to find the canonical persistence path before wiring; if absent, this fix requires adding the persistence layer first.
+2. **Window flagged `movable` but lacks save hook** — user drags the window to a new position; nothing persists the move. Fix: hook `OnMouseLeftButtonUp` (or fork-equivalent) to write the position to whatever persistence layer the fork provides.
 3. **HideAllWindows on logout teardown drops position state** — interfacemodule-level cleanup zeroes out all instance state. Fix: persist settings BEFORE the teardown runs (in `Close()` not in `Destroy()`).
 
 **Quick check:** Drag the window, log out, log back in. If the window opens at `SetCenterPosition` default, root cause is #1 or #3. If it opens at `(0,0)`, root cause is #2.
 
-**See also:** `skills/m2ui/reference/anchors/05-feature-gated.md` for app.* API discipline; bindings.md `app.SaveSetting` / `app.LoadSetting`.
+**See also:** `skills/m2ui/reference/anchors/05-feature-gated.md` for app.* API discipline. Verify any persistence API in `bindings.md` before relying on it (Critical Rule 16).
 
 ---
 
@@ -298,7 +298,7 @@ When a user reports "X looks broken" instead of "fix this code", start here. Eac
 
 **Likely root causes (ranked by frequency):**
 
-1. **`int()` vs `//` on cell-index math** — `(mouse_x - grid_origin_x) / cell_width` returns a float in py2 (when cell_width is int) or float in py3; converting via `int()` truncates and drops fractional. Fix: use `//` (integer division) explicitly.
+1. **`int()` vs `//` on cell-index math** — `int()` truncates TOWARD ZERO, `//` floors TOWARD NEGATIVE INFINITY. They differ for negative offsets: `int(-1.5)` is `-1` but `-3 // 2` is `-2`. When `mouse_x - grid_origin_x` goes negative (click just left of grid), `int(x / cell_width)` gives the wrong cell index. Also, py3's `/` returns float regardless of operand type, so emitting `/` in py2-targeted code that gets ported to py3 introduces float-vs-int drift. Fix: use `//` explicitly for cell-index math so behavior is identical and well-defined across both Python versions.
 2. **Grid origin offset not subtracted before division** — agent forgot to subtract `grid_origin_x` first; `mouse_x // cell_width` returns global-coord cell which is wrong. Fix: `(mouse_x - grid_origin_x) // cell_width`.
 3. **Cell width computed off `parent.width / cols`** — division rounds; (parent.width=200, cols=5) gives cell_width=40 BUT (parent.width=201, cols=5) gives cell_width=40 still — last column overflows. Fix: use `parent.width // cols` and add a sentinel for the last column.
 
