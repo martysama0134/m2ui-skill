@@ -1,8 +1,10 @@
-# Framework augmentations (modifications to ui.py)
+# Framework augmentations (modifications to ui.py / uiCommon.py)
 
-m2ui generally writes user code (root classes, uiscripts), not framework code (`ui.py`). This file is the single exception: when an idiomatic Pattern B / Pattern E call requires a setter to accept `*args` but the canonical setter takes only `(self, event)`, m2ui augments the setter rather than degrading the call site to a proxy lambda.
+m2ui generally writes user code (root classes, uiscripts), not framework code. This file documents the exceptions: augmentations to `ui.py` and `uiCommon.py` that m2ui-generated code may depend on. When generated code calls a method that requires an augmentation, m2ui must emit the augmentation alongside the user code or warn that it is missing.
 
-## When to augment
+## ui.py augmentations
+
+### When to augment ui.py
 
 Augment a setter in `ui.py` when ALL of:
 
@@ -13,7 +15,7 @@ Augment a setter in `ui.py` when ALL of:
 
 If condition 3 or 4 fails, fall back to **Pattern C** (proxy lambda) at the call site. Do not augment.
 
-## Event-setter *args augmentation
+### Event-setter *args augmentation
 
 Three pieces change in `ui.py`:
 
@@ -103,7 +105,7 @@ from _weakref import proxy
 receiver.SetX(lambda a=arg1, b=arg2, r=proxy(self): r.M(a, b))
 ```
 
-## `__mem_func__` idempotency augmentation
+### `__mem_func__` idempotency augmentation
 
 A second framework augmentation that pairs naturally with this rule: make `ui.__mem_func__` idempotent so double-wrap is safe.
 
@@ -189,6 +191,61 @@ Even with idempotent `__mem_func__`, m2ui's emission preference is still:
 2. **Auto-wrap setter (`def SetX(self, event): self.inner.SetEvent(ui.__mem_func__(event))`)** — only when the existing setter is already an auto-wrap by design (e.g., `SAFE_SetEvent`).
 
 Idempotency is a safety net, not a license to be sloppy.
+
+---
+
+## uiCommon.py augmentations
+
+### `QuestionDialog2.SetText()` — convenience split-and-delegate
+
+#### Why
+
+`QuestionDialog2` exposes `SetText1()` / `SetText2()` for its two text lines. When a single locale string contains `\n`, callers must manually split and guard:
+
+```python
+fullText = localeInfo.GEM_SYSTEM_ADD_SLOT % (itemName, itemCount)
+lines = fullText.split("\n")
+questionDialog.SetText1(lines[0] if len(lines) > 0 else "")
+questionDialog.SetText2(lines[1] if len(lines) > 1 else "")
+```
+
+This boilerplate repeats at every call site using single-key locale strings.
+
+#### Augmentation
+
+Add to class `QuestionDialog2` in `uiCommon.py`:
+
+```python
+def SetText(self, text):
+    if text is None:
+        text = ""
+    lines = text.split("\n")
+    self.SetText1(lines[0] if len(lines) > 0 else "")
+    self.SetText2(lines[1] if len(lines) > 1 else "")
+```
+
+Key design decisions:
+- Delegates through `SetText1()` / `SetText2()`, NOT `self.textLine1.SetText()` / `self.textLine2.SetText()` directly — preserves fork overrides of the per-line setters.
+- `None` guard for safety.
+- Max 2 lines consumed; extra lines silently ignored (appropriate for a 2-line dialog).
+- `QuestionDialogWithTimeLimit` inherits via subclass — no additional work needed.
+
+#### Detection
+
+**Do not grep for just `def SetText`** — stock `QuestionDialog2` inherits `QuestionDialog.SetText()` which targets `self.textLine` (single text widget, wrong method). That inherited method does NOT split on `\n`. Detection must verify `SetText` is defined directly on `QuestionDialog2` class, not merely inherited.
+
+Check: grep for `def SetText` within the `class QuestionDialog2` block in the target project's `uiCommon.py`. If absent, the augmentation is needed.
+
+#### When to emit
+
+When m2ui generates code that calls `QuestionDialog2.SetText()`, verify the target project has the method on `QuestionDialog2` itself (not inherited from `QuestionDialog`). If missing, either:
+1. Emit the augmentation alongside the user code, or
+2. Fall back to `SetText1()` / `SetText2()` with manual split at the call site.
+
+#### Backwards compatibility
+
+- `SetText1()` / `SetText2()` remain unchanged and available for separate locale keys or conditional per-line assignment.
+- No existing callers break — `SetText()` is purely additive.
 
 ## Cross-references
 
