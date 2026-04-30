@@ -113,7 +113,7 @@ Window manager — handles all UI window operations at C++ level. Most important
 | `ActivateSlot(handle, index)` | Activate slot (green border) |
 | `DeactivateSlot(handle, index)` | Deactivate slot |
 | `EnableSlot(handle, index)` | Enable slot interaction |
-| `DisableSlot(handle, index)` | Disable slot (grayed out) |
+| `DisableSlot(handle, index)` | Disable slot (red semi-transparent overlay) |
 | `ShowSlotBaseImage(handle, index)` | Show slot background |
 | `HideSlotBaseImage(handle, index)` | Hide slot background |
 | `SetSlotType(handle, type)` | Set slot type |
@@ -783,7 +783,7 @@ When `constInfo.ENABLE_CMDCHAT_VARIADIC_ARGS = True`, `stringCommander.Run()` sp
 ```python
 # WRONG — handler expects single string, but gets 4 separate args:
 def __OnMyCommand(self, args):
-    tokens = args.split()  # args = "0", only the first token!
+    tokens = args.split()  # TypeError: too many positional args (4 given, 1 expected)
 
 # RIGHT — one param per token:
 def __OnMyCommand(self, slotIndex, vnum, count, price):

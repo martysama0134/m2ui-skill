@@ -282,7 +282,7 @@ def SetItemToolTip(self, tooltipItem):
 Cross-link to anchor `06-tooltip-bound.md` for the consuming-window
 pattern (how the slot wires `OnOverInItem` → `tooltipItem.SetItemSlot`).
 
-### Variation 5: Widget reassignment (external bar replaces window sub-widgets)
+## Variation 5: Widget reassignment (external bar replaces window sub-widgets)
 
 When an external panel (e.g., an expanded taskbar) replaces widgets normally owned by another window (e.g., inventory's money display), the `RefreshStatus` delegation chain needs explicit wiring.
 
@@ -303,12 +303,12 @@ def RefreshStatus(self):
     if self.wndExpandedBar:
         self.wndExpandedBar.RefreshStatus()
 
-# 3. Widget reference reassignment (in a setter, not __init__):
+# 3. Widget reference reassignment — on Interface class (interfacemodule.py):
 def SetExpandedBar(self, bar):
-    # Runs AFTER BindInterfaceClass, so interface ref is available
+    # Runs AFTER BindInterfaceClass, so self.wndInventory exists
     self.wndInventory.wndMoney = bar.moneyWidget
     bar.btnExchange.SetEvent(
-        ui.__mem_func__(self.interface.ToggleExchangeWindow)
+        ui.__mem_func__(self.ToggleExchangeWindow)
     )
 ```
 

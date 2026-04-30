@@ -471,7 +471,7 @@ When a user reports "X looks broken" instead of "fix this code", start here. Eac
 
 **Likely root causes (ranked by frequency):**
 
-1. **Variadic dispatch signature mismatch** — when `constInfo.ENABLE_CMDCHAT_VARIADIC_ARGS = True`, `stringCommander.Run()` splits the command line by whitespace and passes each token as a separate positional arg. A handler expecting a single string gets only the first token; a handler expecting fewer args than tokens gets a `TypeError`.
+1. **Variadic dispatch signature mismatch** — when `constInfo.ENABLE_CMDCHAT_VARIADIC_ARGS = True`, `stringCommander.Run()` splits the command line by whitespace and passes each token as a separate positional arg. A handler expecting a single string raises `TypeError` (too many positional args); a handler expecting fewer args than tokens also raises `TypeError`.
 2. **Handler registered with wrong name** — command string in `serverCommandList` doesn't match what the server sends (case-sensitive).
 
 **Quick check:** Add `dbg.TraceError("args: %s" % str(args))` with `*args` as the handler signature. If you see a tuple of individual tokens, root cause is #1.
