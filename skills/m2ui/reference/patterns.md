@@ -1332,7 +1332,7 @@ def __OnConfirmCancel(self):
 
 **Variants available in uiCommon:**
 - `QuestionDialog` — single message line, accept/cancel buttons
-- `QuestionDialog2` — two message lines (uses `questiondialog2.py`)
+- `QuestionDialog2` — two message lines (uses `questiondialog2.py`). Exposes `SetText1()` / `SetText2()` for per-line assignment, and `SetText(text)` which auto-splits on `\n` and delegates to `SetText1` / `SetText2`. Prefer `SetText()` when a single locale key contains the full two-line message; use `SetText1()` / `SetText2()` when lines come from separate keys or are set conditionally.
 - `QuestionDialogWithTimeLimit` — auto-closes after timeout
 - `PopupDialog` — single message with one OK button (acknowledgment only)
 - `MoneyInputDialog` — numeric input with accept/cancel (gold/won entry)
