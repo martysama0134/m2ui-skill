@@ -129,6 +129,8 @@ def OnSellItem(self, slotPos, count, itemtype):
 
 Use case: sell, drop, simple inventory moves. Server validates and either accepts (silent success) or rejects (server pushes a chat-message, no UI roundtrip).
 
+**Variadic command dispatch:** When `constInfo.ENABLE_CMDCHAT_VARIADIC_ARGS = True`, server command handlers registered in `serverCommandList` receive each whitespace-separated token as a separate positional arg (all strings). The handler signature must match the token count exactly — do NOT accept a single string and split it manually. See `reference/bindings.md` "Server command dispatch" section for full details and examples.
+
 ### Variation 2: Request-response (open dialog after server confirms)
 
 The window doesn't show until the server confirms the request.

@@ -147,6 +147,18 @@ if app.__BL_OFFICIAL_LOOT_FILTER__:
 3. **Run-time toggle (not just import-time)** — for flags that the user can change at runtime (rare), check the flag in `Toggle*Window` and `Open` too, not just import. Cache the import behind the flag; rebuild the window if the flag flips ON.
 4. **Different windows per flag value** — `if app.SHOP_VERSION == 2: import uishop_v2 as uishop` else `import uishop_v1 as uishop`. Now `uishop.X` works regardless of version. Five gating points still apply but with the unified `uishop.X` name.
 5. **Net packet handler also gated** — if the gated window is the only consumer of a net packet, gate the `RecvX` registration in `net.py` (or wherever packets are dispatched) too. Otherwise an inactive window receives packets and either crashes (no `wndX`) or wastes work.
+6. **Multi-file uiscript children gating** — when a `children` list is conditionally built via `app.ENABLE_*`, the gate must be applied in ALL uiscript files that define those children. Example: if `inventorywindow.py` gates out money/cheque slots, `inventorywindowex.py` (extended inventory) must apply the same gate — otherwise the extended inventory shows duplicate widgets.
+
+```python
+# In BOTH inventorywindow.py AND inventorywindowex.py:
+if not app.ENABLE_EXPANDED_MONEY_TASKBAR:
+    children += (
+        { "name": "Money_Slot", ... },
+        { "name": "Cheque_Slot", ... },
+    )
+```
+
+Missing the gate on any variant file leaves duplicate or orphaned widgets visible.
 
 ## Don't copy these obsolete bits
 

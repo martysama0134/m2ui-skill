@@ -24,6 +24,12 @@ When a user reports "X looks broken" instead of "fix this code", start here. Eac
 12. [Window opens then immediately closes](#12-window-opens-then-immediately-closes)
 13. [Header / text appears at wrong vertical position (offset from intended)](#13-header--text-appears-at-wrong-vertical-position-offset-from-intended)
 14. [ComboBox dropdown overlaps the rows below it](#14-combobox-dropdown-overlaps-the-rows-below-it)
+30. [Slot DisableSlot / state lost after setting items](#30-slot-disableslot--state-lost-after-setting-items)
+31. [Server command handler receives only first token / TypeError on command](#31-server-command-handler-receives-only-first-token--typeerror-on-command)
+32. [Window open causes infinite packet loop / client freezes on open](#32-window-open-causes-infinite-packet-loop--client-freezes-on-open)
+33. [Tooltip handler exists but tooltip never shows on hover](#33-tooltip-handler-exists-but-tooltip-never-shows-on-hover)
+34. [Replaced/redirected widgets don't update (show stale values)](#34-replacedredirected-widgets-dont-update-show-stale-values)
+35. [Duplicate widgets visible after adding define gate](#35-duplicate-widgets-visible-after-adding-define-gate)
 
 ---
 
@@ -445,6 +451,84 @@ When a user reports "X looks broken" instead of "fix this code", start here. Eac
 **Quick check:** Navigate A -> B -> C, back to A, then open D repeatedly. Trace `len(self.windowHistory)` plus a fork-provided widget-count helper (typical name: `wndMgr.GetWidgetCount` -- not part of the stock binding set documented in `reference/bindings.md`; verify it exists in your fork before relying on it). If history length stays bounded but widget count grows, root cause is #1.
 
 **See also:** `skills/m2ui/reference/anchors/24-page-history-browser.md`; failure-atlas entry 3 (callback leaks); entries 9 / 28 (tooltip cleanup).
+
+---
+
+## 30. "Slot DisableSlot / state lost after setting items"
+
+**Likely root causes (ranked by frequency):**
+
+1. **`SetItemSlot()` resets `dwState` to 0** — `CSlotWindow::SetSlot()` and `ClearSlot()` both zero out `pSlot->dwState`, clearing `SLOT_STATE_DISABLE`, `SLOT_STATE_LOCK`, and all other state bits. Any state set before the `SetItemSlot` call is silently lost.
+2. **State set during init only** — `DisableSlot()` called once in initialization, then `SetItemSlot()` overwrites it when items load.
+
+**Quick check:** Call `DisableSlot(0)` after `SetItemSlot(0, ...)`. If the red overlay appears, root cause is #1 (state was set before item load). If it doesn't, the slot index is wrong or the slot type doesn't support state.
+
+**See also:** `skills/m2ui/reference/widgets.md` "Slot state lifecycle" section; `skills/m2ui/reference/patterns.md` §7.17.
+
+---
+
+## 31. "Server command handler receives only first token / TypeError on command"
+
+**Likely root causes (ranked by frequency):**
+
+1. **Variadic dispatch signature mismatch** — when `constInfo.ENABLE_CMDCHAT_VARIADIC_ARGS = True`, `stringCommander.Run()` splits the command line by whitespace and passes each token as a separate positional arg. A handler expecting a single string gets only the first token; a handler expecting fewer args than tokens gets a `TypeError`.
+2. **Handler registered with wrong name** — command string in `serverCommandList` doesn't match what the server sends (case-sensitive).
+
+**Quick check:** Add `dbg.TraceError("args: %s" % str(args))` with `*args` as the handler signature. If you see a tuple of individual tokens, root cause is #1.
+
+**See also:** `skills/m2ui/reference/bindings.md` "Server command dispatch" section.
+
+---
+
+## 32. "Window open causes infinite packet loop / client freezes on open"
+
+**Likely root causes (ranked by frequency):**
+
+1. **`Open()` both sends a server request AND is called from the server response handler** — creates a loop: `Open()` → sends packet → server responds → handler calls `Open()` → sends packet → ... The client floods the server with packets and freezes.
+
+**Quick check:** Search for `net.Send` inside `Open()`. If found, check whether the server response handler also calls `Open()`. If both are true, this is the cause.
+
+**Fix:** Split into `Open()` (sends request, user-initiated) and `ShowWindow()` (just displays, called from server response). See `skills/m2ui/reference/patterns.md` §5.9 "Server-mediated variant".
+
+---
+
+## 33. "Tooltip handler exists but tooltip never shows on hover"
+
+**Likely root causes (ranked by frequency):**
+
+1. **`SetItemToolTip()` never called** — the window class defines `SetItemToolTip(self, tooltip)` and `OnOverInItem`/`OnOverOutItem` handlers, but no code ever calls `SetItemToolTip()` to pass the tooltip widget reference. `self.tooltipItem` stays `None`, handlers silently no-op.
+2. **Creation order in interfacemodule** — window created before tooltips exist in `MakeInterface()`, so `SetItemToolTip()` receives `None`.
+
+**Quick check:** Grep for `SetItemToolTip` in the window class definition. If it exists, grep the entire codebase for callers. If nobody calls it, root cause is #1. If it's called but with `None`, root cause is #2 (creation order).
+
+**See also:** `skills/m2ui/reference/integration.md` Variation 4 (tooltip binding); `skills/m2ui/reference/anchors/06-tooltip-bound.md`.
+
+---
+
+## 34. "Replaced/redirected widgets don't update (show stale values)"
+
+**Likely root causes (ranked by frequency):**
+
+1. **RefreshStatus delegation chain broken** — an external panel replaced widgets from another window (e.g., inventory money display redirected to an expanded taskbar), but `interfacemodule.RefreshStatus()` doesn't delegate to the replacement panel's `RefreshStatus()`.
+2. **Original window's refresh doesn't run when hidden** — the original window's `RefreshStatus` forwarded to the replacement widgets, but it only runs when the original window is visible.
+3. **Event wiring order wrong** — buttons/events wired in `__init__` before `BindInterfaceClass` runs, so `self.interface` is `None` and event handlers silently fail.
+
+**Quick check:** Call `replacement.RefreshStatus()` manually from the console. If values update, root cause is #1 (delegation not wired). If they don't, the replacement's own RefreshStatus is broken.
+
+**See also:** `skills/m2ui/reference/integration.md` Variation 5 (widget reassignment).
+
+---
+
+## 35. "Duplicate widgets visible after adding define gate"
+
+**Likely root causes (ranked by frequency):**
+
+1. **Gate applied to primary uiscript but not variant/extended version** — e.g., `inventorywindow.py` gates out money slots with `app.ENABLE_*`, but `inventorywindowex.py` (extended inventory) still includes them unconditionally. Both files contribute to the UI, so missing the gate on either shows duplicates.
+2. **Gate condition inverted** — `if app.ENABLE_X` instead of `if not app.ENABLE_X` (or vice versa) in the children list builder.
+
+**Quick check:** Grep for the widget name (e.g., `"Money_Slot"`) across all uiscript files. If it appears ungated in a variant file, root cause is #1.
+
+**See also:** `skills/m2ui/reference/anchors/05-feature-gated.md` variation 6 (multi-file children gating).
 
 ---
 
