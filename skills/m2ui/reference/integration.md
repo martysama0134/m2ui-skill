@@ -282,6 +282,42 @@ def SetItemToolTip(self, tooltipItem):
 Cross-link to anchor `06-tooltip-bound.md` for the consuming-window
 pattern (how the slot wires `OnOverInItem` → `tooltipItem.SetItemSlot`).
 
+## Variation 5: Widget reassignment (external bar replaces window sub-widgets)
+
+When an external panel (e.g., an expanded taskbar) replaces widgets normally owned by another window (e.g., inventory's money display), the `RefreshStatus` delegation chain needs explicit wiring.
+
+**Problem:** The original window's `RefreshStatus` may not run when the window is hidden. The replacement panel's widgets show stale values.
+
+**Pattern:**
+
+```python
+# 1. Replacement panel has its own RefreshStatus pulling from player API:
+class ExpandedBar(ui.ScriptWindow):
+    def RefreshStatus(self):
+        self.moneyText.SetText(localeInfo.NumberToMoneyString(player.GetElk()))
+        self.chequeText.SetText(str(player.GetCheque()))
+
+# 2. interfacemodule delegates to replacement panel's RefreshStatus:
+def RefreshStatus(self):
+    # ... existing refresh calls ...
+    if self.wndExpandedBar:
+        self.wndExpandedBar.RefreshStatus()
+
+# 3. Widget reference reassignment — on Interface class (interfacemodule.py):
+def SetExpandedBar(self, bar):
+    # Runs AFTER BindInterfaceClass, so self.wndInventory exists
+    self.wndInventory.wndMoney = bar.moneyWidget
+    bar.btnExchange.SetEvent(
+        ui.__mem_func__(self.ToggleExchangeWindow)
+    )
+```
+
+**Rules:**
+- Replacement panel needs its own `RefreshStatus` pulling directly from `player.GetElk()` / `player.GetCheque()` / etc.
+- `interfacemodule.RefreshStatus()` must delegate to replacement panel — don't rely on the original window forwarding.
+- Event wiring order matters: wire in the setter method (runs after `BindInterfaceClass`), not in `__init__` — the `interface` reference isn't available yet at init time.
+- Original window's `wndMoney`/`wndCheque` references get redirected — the original widgets are no longer updated.
+
 ## Cross-references
 
 - Window archetype anchors: `skills/m2ui/reference/anchors/README.md`

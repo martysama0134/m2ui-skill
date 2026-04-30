@@ -113,7 +113,7 @@ Window manager — handles all UI window operations at C++ level. Most important
 | `ActivateSlot(handle, index)` | Activate slot (green border) |
 | `DeactivateSlot(handle, index)` | Deactivate slot |
 | `EnableSlot(handle, index)` | Enable slot interaction |
-| `DisableSlot(handle, index)` | Disable slot (grayed out) |
+| `DisableSlot(handle, index)` | Disable slot (red semi-transparent overlay) |
 | `ShowSlotBaseImage(handle, index)` | Show slot background |
 | `HideSlotBaseImage(handle, index)` | Hide slot background |
 | `SetSlotType(handle, type)` | Set slot type |
@@ -769,6 +769,41 @@ Network stream — send packets to server, get connection info.
 | `SetTCPRecvBufferSize(size)` | Set recv buffer |
 | `SetTCPSendBufferSize(size)` | Set send buffer |
 | `GetBettingGuildWarValue(type)` | Get guild war bet |
+
+### Server command dispatch (ENABLE_CMDCHAT_VARIADIC_ARGS)
+
+When `constInfo.ENABLE_CMDCHAT_VARIADIC_ARGS = True`, `stringCommander.Run()` splits the server command line by whitespace and passes each token as a **separate positional arg** to the handler callback.
+
+**Server sends:** `ChatPacket(CHAT_TYPE_COMMAND, "MyCommand 0 76041 100 8")`
+
+**Client receives tokens:** `["0", "76041", "100", "8"]` → handler called as `handler("0", "76041", "100", "8")`
+
+**Handler signature must match token count:**
+
+```python
+# WRONG — handler expects single string, but gets 4 separate args:
+def __OnMyCommand(self, args):
+    tokens = args.split()  # TypeError: too many positional args (4 given, 1 expected)
+
+# RIGHT — one param per token:
+def __OnMyCommand(self, slotIndex, vnum, count, price):
+    slotIndex = int(slotIndex)  # all args arrive as strings
+    vnum = int(vnum)
+```
+
+**No-arg commands:** `def __OnMyClear(self):` — tokens list is empty, works fine.
+
+**Single-arg commands:** `def __OnMyRefresh(self, value):` — one token, works fine.
+
+**Multi-arg examples from codebase:**
+- `__GuildWar_UpdateMemberCount(self, guildID1, memberCount1, guildID2, memberCount2, observerCount)`
+- `__Horse_UpdateState(self, level, health, battery)`
+- `__PrivateShop_PriceList(self, itemVNum, itemPrice)`
+
+**Registration:** In `game.py.__init__` via `self.serverCommandList`:
+```python
+self.serverCommandList["MyCommand"] = self.__OnMyCommand
+```
 
 ---
 

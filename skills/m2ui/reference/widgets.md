@@ -632,6 +632,12 @@ Each slot dict in the `slot` list:
 - `EnableSlot(slotIndex)` / `DisableSlot(slotIndex)`
 - `RefreshSlot()` -- refresh rendering
 
+**Slot state lifecycle (`dwState`):**
+- `SetItemSlot()`, `SetSkillSlot()`, and `ClearSlot()` all reset `pSlot->dwState = 0`. This clears `SLOT_STATE_DISABLE`, `SLOT_STATE_LOCK`, and any other state bits.
+- `DisableSlot(index)` sets `SLOT_STATE_DISABLE` — renders a **red** semi-transparent overlay (`SetDiffuseColor(1.0, 0.0, 0.0, 0.3)`), not gray. There is no built-in gray overlay.
+- `EnableSlot(index)` clears `SLOT_STATE_DISABLE`.
+- **Rule:** If you need persistent slot states (disable, lock), re-apply them AFTER every `SetItemSlot()` call, not once during init. Any `Set*Slot` call wipes them.
+
 **Notes:** Does NOT call `LoadDefaultData` -- position is set directly. Does not auto-show via the common path.
 
 ---

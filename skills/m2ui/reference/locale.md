@@ -80,3 +80,8 @@ The Metin2 client uses Windows code pages, not UTF-8. When writing locale files,
 - **Group new entries** — add all entries for one window together, at the end of the file
 - **No empty lines** between entries (match existing file format)
 - **Match existing encoding** — when appending, write in the same encoding as the rest of the file
+- **Check official keys before creating custom ones** — many system strings already exist in the official locale files. Before adding a new key, search all three files:
+  - `locale_interface.txt` — UI labels (`uiScriptLocale.KEY`)
+  - `locale_game.txt` — runtime game strings (`localeInfo.KEY`)
+  - `locale_string.txt` — numbered server-side strings (referenced as `[LS;N]` in server quest/source)
+  Creating a duplicate wastes translation effort and risks inconsistency with the official wording.

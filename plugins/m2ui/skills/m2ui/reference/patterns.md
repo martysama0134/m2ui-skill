@@ -675,6 +675,40 @@ __del__()
   -> ScriptWindow.__del__(self)
 ```
 
+**Server-mediated variant:** When `Open()` sends a server request (e.g., `/cmd open`) and the server response triggers the window to display, split into two methods to avoid an infinite loop:
+
+```
+Open()        — user-initiated, sends server request
+  -> net.SendChatPacket("/cmd open")
+  -> does NOT call Show()
+
+ShowWindow()  — called from server response handler
+  -> SetCenterPosition()
+  -> SetTop()
+  -> Show()
+```
+
+If `Open()` both sends the request AND shows the window, and the server response handler also calls `Open()`, it loops: `Open()` → server request → server response → `Open()` → ...
+
+```python
+# WRONG — Open both requests AND shows:
+def Open(self):
+    net.SendChatPacket("/mywindow open")
+    self.SetCenterPosition()
+    self.Show()  # server response calls Open() again → infinite loop
+
+# RIGHT — split request from display:
+def Open(self):
+    net.SendChatPacket("/mywindow open")  # request only
+
+def ShowWindow(self):
+    self.SetCenterPosition()
+    self.SetTop()
+    self.Show()  # display only — called from server response
+```
+
+Server response handler (in `game.py` or `interfacemodule.py`) calls `ShowWindow()`, never `Open()`.
+
 ### 5.10 Close() cleanup checklist
 
 ```python
@@ -2245,6 +2279,35 @@ def __GetMaxCraftCount(self, materials):
   float in Python 3.
 - Call `__UpdateMaterialDisplay` on `Open()`, on quantity change, and
   after any inventory refresh event.
+
+---
+
+### 7.17 Re-apply slot state after SetItemSlot
+
+`SetItemSlot()` and `ClearSlot()` reset `dwState` to 0, silently clearing any `DisableSlot` / `SLOT_STATE_LOCK` flags. If slots need persistent state (e.g., locking unavailable slots), re-apply after every item update.
+
+```python
+# WRONG — state set once, cleared by subsequent SetItemSlot:
+def SetSlotCount(self, count):
+    for i in xrange(SLOT_MAX):
+        if i >= count:
+            self.slot.DisableSlot(i)
+
+def SetItem(self, slotIndex, vnum, count):
+    self.slot.SetItemSlot(slotIndex, vnum, count)
+    # DisableSlot from SetSlotCount is now GONE — dwState was reset to 0
+
+# RIGHT — re-apply state after each item update:
+def SetItem(self, slotIndex, vnum, count):
+    self.slot.SetItemSlot(slotIndex, vnum, count)  # resets dwState
+    if slotIndex >= self.slotCount:
+        self.slot.DisableSlot(slotIndex)  # re-apply after SetItemSlot
+```
+
+**Pitfalls:**
+- The same wipe applies to `SetSkillSlot()` and `ClearSlot()` — not just `SetItemSlot`.
+- `DisableSlot` renders a red overlay, not gray. Don't confuse visual expectations.
+- `RefreshSlot()` does NOT re-apply state — it only refreshes rendering. You must call `DisableSlot`/`EnableSlot` explicitly.
 
 ---
 
