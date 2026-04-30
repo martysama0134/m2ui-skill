@@ -229,7 +229,19 @@ def __del__(self):
 ## Common variations
 
 1. **Yes/No instead of OK/Cancel** — already the default (uiScriptLocale.YES / NO). For OK/Cancel, call `SetAcceptText(localeInfo.UI_OK)` and `SetCancelText(localeInfo.UI_CANCEL)` after `Open()`.
-2. **Two-line message** — use `uicommon.QuestionDialog2` (uiscript `questiondialog2.py`) which exposes `SetText1` / `SetText2`.
+2. **Two-line message** — use `uicommon.QuestionDialog2` (uiscript `questiondialog2.py`).
+   - **Preferred (single locale key with `\n`):** call `SetText(text)` — auto-splits on `\n` and delegates to `SetText1` / `SetText2` internally. Requires augmented `uiCommon.py` (not stock).
+     ```python
+     dlg = uicommon.QuestionDialog2()
+     dlg.SetText(localeInfo.GEM_SYSTEM_ADD_SLOT % (itemName, itemCount))
+     ```
+   - **Separate locale keys:** call `SetText1` / `SetText2` individually.
+     ```python
+     dlg = uicommon.QuestionDialog2()
+     dlg.SetText1(localeInfo.REFINE_DESTROY_WARNING_1)
+     dlg.SetText2(localeInfo.REFINE_DESTROY_WARNING_2)
+     ```
+   - `SetText(text)` consumes at most 2 lines; extra lines are silently ignored.
 3. **Auto-close after N seconds** — use `uicommon.QuestionDialogWithTimeLimit` (line 302+) which counts down on `OnUpdate`.
 4. **Pass extra context to callback** — use the event setter's extra-args feature: `self.acceptButton.SetEvent(ui.__mem_func__(self.OnAccept), itemIndex)`. The trailing arg is delivered to the callback.
 5. **Wider dialog for long text** — call `dlg.SetWidth(500)` after `Open()`. Height stays fixed.
