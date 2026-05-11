@@ -314,10 +314,10 @@ grep "SetKeyFrameEvent" pack/pack/root/ui.py              # Python setter
 **File:** `EterPythonLib/PythonWindow.h`, inside `class CAniImageBox`
 
 ```cpp
-        virtual void OnEndFrame();
-#if defined(__BL_ON_END_KEY_FRAME__)
+        virtual void OnEndFrame();       // ← existing line (context)
+#if defined(__BL_ON_END_KEY_FRAME__)     // ← ADD from here
         void OnKeyFrame();
-#endif
+#endif                                   // ← ADD to here
 ```
 
 No new member variables needed — `m_bycurIndex` already exists.
@@ -465,8 +465,7 @@ class AniImageBox(Window):
 ### When to apply
 
 Apply when generated code uses `SetEndFrameEvent`, `SetKeyFrameEvent`, or
-`ResetFrame()` on an `AniImageBox` — any of the patterns in
-`timer-patterns.md` sections 8 and 9.
+`ResetFrame()` on an `AniImageBox` — see `timer-patterns.md` section 9.
 
 ### When NOT to apply
 

@@ -549,9 +549,8 @@ Animated image that cycles through a sequence of frames.
 
 **Key methods:**
 - `AppendImage(filename)` -- add a frame
-- `SetDelay(delay)` -- set animation delay (milliseconds)
+- `SetDelay(delay)` -- set animation frame delay (update ticks, not ms; `6` at 60 FPS ≈ 10 changes/sec)
 - `SetPercentage(curValue, maxValue)` -- horizontal fill (via rendering rect)
-- `SetScale(xScale, yScale)` -- set display scale
 
 **Augmentation-dependent methods** (require `framework-augmentations.md` AniImageBox patch):
 - `ResetFrame()` -- reset playback to frame 0 (C++ exists, needs wndMgr binding)
@@ -566,7 +565,9 @@ Both event setters store callables that must be wrapped with `ui.__mem_func__`.
 
 #### Gotcha: Frame timing units
 
-`AniImage.SetDelay(delay_ms)` takes milliseconds (engine spec, not seconds). A `SetDelay(50)` cycles frames every 50 ms = 20 FPS. Common bug: assuming seconds, getting a 50-second per-frame animation.
+`AniImage.SetDelay(delay)` takes **update ticks** (OnUpdate cycles), not milliseconds
+or seconds. A `SetDelay(6)` at 60 FPS means a frame advance every 6 ticks ≈ 10
+animation steps per second. `SetDelay(1)` = maximum speed (every tick).
 
 Loop behavior:
 - Default: loops indefinitely from frame 0 to last-loaded frame.
@@ -1028,8 +1029,8 @@ Requires `ENABLE_MINI_GAME_YUTNORI` or equivalent compile flag.
 - **No uiscript dict support** -- code-only.
 
 **Additional methods (on top of MoveImageBox):**
-- `SetMaxScale(scale)` -- peak scale factor (1.5 = 50% larger at midpoint)
-- `SetMaxScaleRate(rate)` -- how quickly scale ramps (0.5 = gradual, 1.0 = instant)
+- `SetMaxScale(scale)` -- peak scale factor during movement (1.5 = 50% larger)
+- `SetMaxScaleRate(rate)` -- scale interpolation factor (behavior depends on movement distance; set AFTER `SetMovePosition`)
 - `SetScalePivotCenter(flag)` -- `True` = scale around center; `False` = top-left origin
 
 **Usage pattern (game piece that bounces between board positions):**
@@ -1047,17 +1048,13 @@ piece.AddFlag("float")
 piece.Show()
 ```
 
-**Adjusting speed/scale per segment:**
+**Adjusting speed/scale per segment** (set AFTER `SetMovePosition`, before `MoveStart`):
 ```python
-# slow dramatic final move
+piece.SetMovePosition(targetX, targetY)
 piece.SetMoveSpeed(1.5)
 piece.SetMaxScale(1.8)
 piece.SetMaxScaleRate(0.7)
-
-# fast catch/capture move
-piece.SetMoveSpeed(8.0)
-piece.SetMaxScale(1.0)
-piece.SetMaxScaleRate(1.0)
+piece.MoveStart()
 ```
 
 ### MoveTextLine
@@ -1070,6 +1067,11 @@ Text that smoothly interpolates position. Same movement API as MoveImageBox.
 Same methods: `SetMovePosition`, `SetMoveSpeed`, `MoveStart`, `MoveStop`,
 `GetMove`, `SetEndMoveEvent`. Conditional on `ENABLE_MINI_GAME_YUTNORI` in
 some forks.
+
+**Note:** `MoveTextLine.SetEndMoveEvent(event, *args)` accepts `*args` and
+dispatches via `apply(func, args)`. `MoveImageBox.SetEndMoveEvent(event)`
+does NOT accept extra args — it calls `event()` with no arguments. Check
+your fork's `ui.py` to confirm which signature applies.
 
 ---
 

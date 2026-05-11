@@ -2832,10 +2832,15 @@ class CostumeWindow(ui.ScriptWindow):
         ui.ScriptWindow.__init__(self)
         self.isLoaded = 0
         self.wndParent = wndParent
+        self.wndSlot = None
+
+    def __del__(self):
+        ui.ScriptWindow.__del__(self)
 
     def Initialize(self):
         self.isLoaded = 0
         self.wndParent = None
+        self.wndSlot = None
 
     def __LoadWindow(self):
         if self.isLoaded == 1:
@@ -2864,6 +2869,7 @@ class CostumeWindow(ui.ScriptWindow):
     @ui.WindowDestroy
     def Destroy(self):
         self.Initialize()
+        self.ClearDictionary()
 ```
 
 **Key rules:**
@@ -2928,6 +2934,7 @@ class SelectTextSlot(ui.ImageBox):
         ui.ImageBox.__del__(self)
 
     def SetEvent(self, event):
+        # Caller must wrap with ui.__mem_func__ if passing a bound method
         self.clickEvent = event
 
     def SetText(self, text):
@@ -2964,11 +2971,13 @@ row and column position matter (card collection, star ratings per cell,
 attendance calendar), use nested lists instead of flat slot indices.
 
 ```python
+from _weakref import proxy
+
 COLS = 4
 ROWS = 2
 STAR_COUNT = 5
 
-# Initialize 2D arrays for each widget layer
+# Initialize 2D arrays for each widget layer (also set in Initialize())
 self.cardImages = [[None for c in xrange(COLS)] for r in xrange(ROWS)]
 self.cardStars = [[[None for s in xrange(STAR_COUNT)] for c in xrange(COLS)] for r in xrange(ROWS)]
 
@@ -3000,5 +3009,8 @@ for row in xrange(ROWS):
   inventory pages, attendance buttons). Prefer flat lists for
   `SlotWindow`-backed grids where `start_index` handles the mapping.
 
-**Cleanup:** Iterate all dimensions in `Destroy()` / `Initialize()` and
-set each cell to `None`.
+**Cleanup:** In `Initialize()`, reassign each array to fresh `[[None ...]]`.
+The child widgets are parented to `contentPanel` via `SetParent` — setting
+cells to `None` drops the Python reference; the engine cleans up the
+C++ side when the parent is destroyed. Do NOT call `InsertChild` on grid
+widgets unless you need `GetChild()` lookup — it is not required for cleanup.

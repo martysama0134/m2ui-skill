@@ -259,6 +259,9 @@ class MyBoardGame(ui.ScriptWindow):
         self.piece.SetPosition(positions[0][0], positions[0][1])
         for pos in positions[1:]:
             self.moveQueue.append(pos)
+        (nx, ny) = self.moveQueue[0]
+        self.piece.SetMovePosition(nx, ny)
+        self.piece.MoveStart()
 
     def OnUpdate(self):
         if not self.moveQueue:
@@ -311,9 +314,9 @@ class MyMinigame(ui.ScriptWindow):
 
     def QueueSequence(self):
         self.eventQueue.append((EVENT_NOTICE, "Round 1"))
-        self.eventQueue.append((EVENT_INSERT_DELAY, 1500))
+        self.eventQueue.append((EVENT_INSERT_DELAY, 1.5))
         self.eventQueue.append((EVENT_SEND_PACKET, None))
-        self.eventQueue.append((EVENT_INSERT_DELAY, 2000))
+        self.eventQueue.append((EVENT_INSERT_DELAY, 2.0))
         self.eventQueue.append((EVENT_SHOW_EFFECT, "score"))
 
     def OnUpdate(self):
@@ -322,27 +325,28 @@ class MyMinigame(ui.ScriptWindow):
         (evType, data) = self.eventQueue[0]
 
         if evType == EVENT_DELAY:
-            if app.GetGlobalTime() >= data:
+            if app.GetTime() >= data:
                 self.eventQueue.popleft()
             return
 
         self.eventQueue.popleft()
 
         if evType == EVENT_INSERT_DELAY:
-            deadline = app.GetGlobalTime() + data
+            deadline = app.GetTime() + data
             self.eventQueue.appendleft((EVENT_DELAY, deadline))
         elif evType == EVENT_NOTICE:
             if self.noticeText:
                 self.noticeText.SetText(data)
         elif evType == EVENT_SEND_PACKET:
-            net.SendMiniGameAction()
+            pass  # TODO: verify net.SendXxx exists in your fork
         elif evType == EVENT_SHOW_EFFECT:
             self.__PlayEffect(data)
 ```
 
 **Key rules:**
-- `EVENT_INSERT_DELAY` converts a relative ms value into an absolute
+- `EVENT_INSERT_DELAY` converts a relative seconds value into an absolute
   `EVENT_DELAY` deadline via `appendleft` -- this avoids drift.
+- `app.GetTime()` returns float seconds since client start.
 - Peek with `[0]`, only `popleft()` after the event is consumed.
 - `DELAY` events block the queue (early return) until time passes.
 - Clear the queue in `Destroy()` / `Initialize()`.
@@ -359,7 +363,6 @@ def __BuildEffectLayers(self, parent):
     self.effectLayer2 = self.__MakeAni(parent, "effect/layer2_", 6)
     self.effectLayer3 = self.__MakeAni(parent, "effect/layer3_", 6)
 
-    self.effectLayer1.SetScale(1.2, 1.2)
     self.effectLayer1.SetEndFrameEvent(ui.__mem_func__(self.__OnLayer1End))
     self.effectLayer1.SetKeyFrameEvent(ui.__mem_func__(self.__OnLayer1Frame))
     self.effectLayer2.SetEndFrameEvent(ui.__mem_func__(self.__OnLayer2End))
