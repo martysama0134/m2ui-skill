@@ -247,6 +247,245 @@ When m2ui generates code that calls `QuestionDialog2.SetText()`, verify the targ
 - `SetText1()` / `SetText2()` remain unchanged and available for separate locale keys or conditional per-line assignment.
 - No existing callers break — `SetText()` is purely additive.
 
+---
+
+## AniImageBox frame event augmentation (C++ + ui.py)
+
+### What it adds
+
+Three capabilities to `AniImageBox`:
+
+| Feature | What | Depends on |
+|---------|------|------------|
+| `SetEndFrameEvent(event)` | Python callback when animation cycle completes | C++ `OnEndFrame` (already exists) |
+| `SetKeyFrameEvent(event)` | Python callback every frame tick with `(cur_frame)` arg | **New** C++ `OnKeyFrame` call |
+| `ResetFrame()` Python wrapper | Reset animation to frame 0 from Python | C++ `ResetFrame` (already exists, needs wndMgr binding) |
+
+### Guard symbol
+
+`__BL_ON_END_KEY_FRAME__` — C++ `#if defined(...)`, Python `if app.__BL_ON_END_KEY_FRAME__:`.
+
+### Prerequisites — verify before applying
+
+```
+# C++ must have these:
+grep "OnEndFrame" EterPythonLib/PythonWindow.cpp      # PyCallClassMemberFunc line
+grep "ResetFrame" EterPythonLib/PythonWindow.cpp       # m_bycurIndex = 0
+grep "m_bycurIndex" EterPythonLib/PythonWindow.h       # BYTE member
+
+# Python must have:
+grep "class AniImageBox" pack/pack/root/ui.py          # with OnEndFrame stub
+```
+
+If `OnEndFrame` in C++ does NOT call `PyCallClassMemberFunc`, this augmentation
+cannot work — the C++→Python callback bridge is missing entirely.
+
+### Detection
+
+```
+# Already applied?
+grep "__BL_ON_END_KEY_FRAME__" Locale_inc.h              # C++ define
+grep "__BL_ON_END_KEY_FRAME__" PythonApplicationModule.cpp # Python constant
+grep "SetKeyFrameEvent" pack/pack/root/ui.py              # Python setter
+```
+
+---
+
+### Piece 0 — Define guard + Python constant
+
+**File:** `UserInterface/Locale_inc.h`
+
+```cpp
+#define __BL_ON_END_KEY_FRAME__
+```
+
+**File:** `UserInterface/PythonApplicationModule.cpp` (near other `__BL_` constants)
+
+```cpp
+#if defined(__BL_ON_END_KEY_FRAME__)
+    PyModule_AddIntConstant(poModule, "__BL_ON_END_KEY_FRAME__",	1);
+#else
+    PyModule_AddIntConstant(poModule, "__BL_ON_END_KEY_FRAME__",	0);
+#endif
+```
+
+### Piece 1 — C++ header: add `OnKeyFrame` declaration
+
+**File:** `EterPythonLib/PythonWindow.h`, inside `class CAniImageBox`
+
+```cpp
+        virtual void OnEndFrame();       // ← existing line (context)
+#if defined(__BL_ON_END_KEY_FRAME__)     // ← ADD from here
+        void OnKeyFrame();
+#endif                                   // ← ADD to here
+```
+
+No new member variables needed — `m_bycurIndex` already exists.
+
+### Piece 2 — C++ implementation: add `OnKeyFrame` and call from `OnUpdate`
+
+**File:** `EterPythonLib/PythonWindow.cpp`
+
+Add the new method right after `OnEndFrame`:
+
+```cpp
+#if defined(__BL_ON_END_KEY_FRAME__)
+void CAniImageBox::OnKeyFrame()
+{
+    PyCallClassMemberFunc(m_poHandler, "OnKeyFrame", Py_BuildValue("(i)", m_bycurIndex));
+}
+#endif
+```
+
+In `OnUpdate`, add call after the frame-advance block:
+
+```cpp
+    ++m_bycurIndex;
+    if (m_bycurIndex >= m_ImageVector.size())
+    {
+        m_bycurIndex = 0;
+        OnEndFrame();
+    }
+
+#if defined(__BL_ON_END_KEY_FRAME__)
+    OnKeyFrame();
+#endif
+}
+```
+
+**Order matters:** `OnKeyFrame` fires AFTER the index advances and AFTER a
+potential `OnEndFrame` reset. Frame 0 fires on both cycle-wrap and first frame.
+
+### Piece 3 — C++ wndMgr binding: expose `ResetFrame` to Python
+
+**File:** `EterPythonLib/PythonWindowManagerModule.cpp`
+
+Add the binding function (near the other AniImageBox bindings):
+
+```cpp
+#if defined(__BL_ON_END_KEY_FRAME__)
+PyObject * wndImageResetFrame(PyObject * poSelf, PyObject * poArgs)
+{
+    UI::CWindow * pWindow;
+    if (!PyTuple_GetWindow(poArgs, 0, &pWindow))
+        return Py_BuildException();
+
+    ((UI::CAniImageBox*)pWindow)->ResetFrame();
+
+    return Py_BuildNone();
+}
+#endif
+```
+
+Add to the method table (after `AppendImage`):
+
+```cpp
+// AniImageBox
+{ "SetDelay",                  wndImageSetDelay,                  METH_VARARGS },
+{ "AppendImage",               wndImageAppendImage,               METH_VARARGS },
+#if defined(__BL_ON_END_KEY_FRAME__)
+{ "ResetFrame",                wndImageResetFrame,                METH_VARARGS },
+#endif
+```
+
+**Note:** Both the binding function and its method table entry are guarded
+by `__BL_ON_END_KEY_FRAME__`. The C++ `ResetFrame` method itself exists
+unconditionally in `PythonWindow.cpp`, but the Python-facing binding is
+gated so the entire feature toggles cleanly from one define.
+
+### Piece 4 — Python ui.py: gated event setters
+
+**File:** `pack/pack/root/ui.py`, `class AniImageBox`
+
+```python
+class AniImageBox(Window):
+    def __init__(self, layer = "UI"):
+        Window.__init__(self, layer)
+        if app.__BL_ON_END_KEY_FRAME__:
+            self.end_frame_event = None
+            self.key_frame_event = None
+
+    def __del__(self):
+        Window.__del__(self)
+        if app.__BL_ON_END_KEY_FRAME__:
+            self.end_frame_event = None
+            self.key_frame_event = None
+
+    def RegisterWindow(self, layer):
+        self.hWnd = wndMgr.RegisterAniImageBox(self, layer)
+
+    def SetDelay(self, delay):
+        wndMgr.SetDelay(self.hWnd, delay)
+
+    def AppendImage(self, filename):
+        wndMgr.AppendImage(self.hWnd, filename)
+
+    def SetPercentage(self, curValue, maxValue):
+        wndMgr.SetRenderingRect(self.hWnd, 0.0, 0.0, -1.0 + float(curValue) / float(maxValue), 0.0)
+
+    if app.__BL_ON_END_KEY_FRAME__:
+        def ResetFrame(self):
+            wndMgr.ResetFrame(self.hWnd)
+
+        def OnEndFrame(self):
+            if self.end_frame_event:
+                self.end_frame_event()
+
+        def SetEndFrameEvent(self, event):
+            self.end_frame_event = event
+
+        def OnKeyFrame(self, cur_frame):
+            if self.key_frame_event:
+                self.key_frame_event(cur_frame)
+
+        def SetKeyFrameEvent(self, event):
+            self.key_frame_event = event
+    else:
+        def OnEndFrame(self):
+            pass
+```
+
+### Verification checklist
+
+1. **C++ compiles** — `OnKeyFrame` declared in header, implemented in .cpp, no
+   new includes needed (`Py_BuildValue` already available).
+2. **ResetFrame binding registered** — grep method table for `"ResetFrame"`.
+3. **OnEndFrame backwards compatible** — if no event set, `self.end_frame_event`
+   is `None`, the `if` guard skips the call. Old code with `OnEndFrame` overrides
+   in subclasses still works because `end_frame_event` defaults to `None`.
+4. **OnKeyFrame absent = no-op** — if Python class has no `OnKeyFrame` method,
+   `PyCallClassMemberFunc` silently fails (standard engine behavior for
+   missing handler methods). Once the ui.py augmentation is applied, the method
+   exists and delegates to the stored event or no-ops if `None`.
+5. **Memory safety** — event attrs stored as `None` or `__mem_func__` wrapped.
+   Cleaned up in `__del__`. Matches `MoveImageBox.SetEndMoveEvent` pattern.
+6. **Frame index type** — `m_bycurIndex` is `BYTE` (0-255). Passed to Python as
+   `int` via `Py_BuildValue("(i)", ...)`. Safe for up to 255-frame animations.
+
+### When to apply
+
+Apply when generated code uses `SetEndFrameEvent`, `SetKeyFrameEvent`, or
+`ResetFrame()` on an `AniImageBox` — see `timer-patterns.md` section 9.
+
+### When NOT to apply
+
+- Fork already has these features (grep for `SetKeyFrameEvent` in ui.py).
+- C++ `OnEndFrame` does not call `PyCallClassMemberFunc` — the callback
+  bridge is missing; this augmentation alone cannot fix that.
+- Animation has > 255 frames — `m_bycurIndex` is `BYTE`, will wrap. Rare
+  in practice (most Metin2 animations are 4-12 frames).
+
+### Performance note
+
+`OnKeyFrame` calls `PyCallClassMemberFunc` every frame advance. For a
+6-frame animation at delay 6, that is ~28 Python calls/second. Negligible
+for 1-3 animated widgets; avoid setting `SetKeyFrameEvent` on > 10
+simultaneously animating widgets. If only `SetEndFrameEvent` is needed,
+skip `SetKeyFrameEvent` — `OnKeyFrame` still fires in C++ but the Python
+`if self.key_frame_event:` guard exits immediately.
+
+---
+
 ## Cross-references
 
 - Critical Rule 19 in `skills/m2ui/SKILL.md`
@@ -256,3 +495,4 @@ When m2ui generates code that calls `QuestionDialog2.SetText()`, verify the targ
 - Pattern reference in `skills/m2ui/reference/patterns.md` Section 3 (verification-first extra-args example)
 - Diagnose finding in `skills/m2ui/modes/diagnose.md` (Callback Binding Crashes section)
 - Smoke test assertion in `tests/test-mode-dispatch.sh` (`EXTREMELY-IMPORTANT` block count)
+- Timer patterns in `reference/timer-patterns.md` sections 8-9 (deque queue + layered effects use these events)

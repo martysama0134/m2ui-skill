@@ -202,8 +202,9 @@ Window manager — handles all UI window operations at C++ level. Most important
 
 | Function | Purpose |
 |----------|---------|
-| `SetDelay(handle, delay)` | Set animation frame delay |
+| `SetDelay(handle, delay)` | Set animation frame delay (update ticks, not ms) |
 | `AppendImage(handle, filename)` | Add animation frame |
+| `ResetFrame(handle)` | Reset animation to frame 0 (requires `__BL_ON_END_KEY_FRAME__` — see `framework-augmentations.md`) |
 
 ### Button Operations
 
