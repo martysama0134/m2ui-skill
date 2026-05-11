@@ -549,10 +549,17 @@ Animated image that cycles through a sequence of frames.
 
 **Key methods:**
 - `AppendImage(filename)` -- add a frame
-- `SetDelay(delay)` -- set animation delay
+- `SetDelay(delay)` -- set animation delay (milliseconds)
+- `ResetFrame()` -- reset playback to frame 0
 - `SetPercentage(curValue, maxValue)` -- horizontal fill (via rendering rect)
+- `SetPercentageWithScale(curValue, maxValue)` -- horizontal fill preserving current scale
+- `SetScale(xScale, yScale)` -- set display scale
+- `SetEndFrameEvent(event)` -- callback when animation cycle completes
+- `SetKeyFrameEvent(event)` -- callback per-frame with `(cur_frame)` arg; fires every frame
 
 **Notes:** Calls `OnEndFrame()` when animation completes a cycle (override in subclass).
+`OnKeyFrame(cur_frame)` fires every frame tick and receives the current frame index.
+Both events must be wrapped with `ui.__mem_func__` when referencing `self`.
 
 #### Gotcha: Frame timing units
 
@@ -948,6 +955,9 @@ They must be created in Python code, not in uiscript dicts.
 | `ComboBox` | `Window` | Dropdown select box (see caveat below) |
 | `Bar3D` | `Window` | 3D-style bar (same as SlotBar internally) |
 | `RadioButtonGroup` | `NoWindow` | Helper for radio button grouping |
+| `MoveImageBox` | `ImageBox` | Image with smooth position interpolation |
+| `MoveScaleImageBox` | `MoveImageBox` | Image with movement + scale animation |
+| `MoveTextLine` | `TextLine` | Text with smooth position interpolation |
 
 ### ComboBox dropdown caveat (load-time consideration)
 
@@ -966,6 +976,97 @@ Mitigation patterns (pick one when generating a form with multiple `ComboBox`):
 - **Replace with `radio_button` group** when there are ≤ 4 options. Trades vertical space for visibility.
 
 For symptom-driven diagnosis of "dropdown covers next row", see `failure-atlas.md` entry 14.
+
+### MoveImageBox
+
+Image that smoothly interpolates position from current to a target over time.
+Requires `ENABLE_MINI_GAME_YUTNORI` or equivalent compile flag in many forks.
+
+- **Class:** `MoveImageBox` (extends `ImageBox`)
+- **Registration:** `wndMgr.RegisterMoveImageBox(pyObj, layer)`
+- **No uiscript dict support** -- code-only.
+
+**Key methods:**
+- `LoadImage(filename)` -- inherited from ImageBox
+- `SetMovePosition(dst_x, dst_y)` -- set destination (global coords)
+- `SetMoveSpeed(speed)` -- pixels-per-tick speed (float; 2.5 = moderate, 10.0 = fast)
+- `MoveStart()` -- begin interpolation toward target
+- `MoveStop()` -- halt at current position
+- `GetMove()` -- returns `True` while moving, `False` when arrived
+- `SetEndMoveEvent(event)` -- callback when movement completes (wrap with `ui.__mem_func__`)
+
+**Lifecycle pattern:**
+```python
+img = ui.MoveImageBox()
+img.SetParent(proxy(parent))
+img.LoadImage("d:/ymir work/ui/minigame/piece.sub")
+img.SetPosition(startX, startY)
+img.SetMoveSpeed(2.5)
+img.SetEndMoveEvent(ui.__mem_func__(self.__OnMoveEnd))
+img.AddFlag("float")
+img.Show()
+
+# later, to start movement:
+img.SetMovePosition(targetX, targetY)
+img.MoveStart()
+```
+
+**Gotcha:** `SetMovePosition` uses **global** coordinates, not parent-relative.
+If parent moves, recalculate with `parent.GetGlobalPosition()`.
+
+### MoveScaleImageBox
+
+Extends MoveImageBox with scale animation during movement -- image grows
+toward a peak scale at the midpoint of travel, then shrinks back.
+Requires `ENABLE_MINI_GAME_YUTNORI` or equivalent compile flag.
+
+- **Class:** `MoveScaleImageBox` (extends `MoveImageBox`)
+- **Registration:** `wndMgr.RegisterMoveScaleImageBox(pyObj, layer)`
+- **No uiscript dict support** -- code-only.
+
+**Additional methods (on top of MoveImageBox):**
+- `SetMaxScale(scale)` -- peak scale factor (1.5 = 50% larger at midpoint)
+- `SetMaxScaleRate(rate)` -- how quickly scale ramps (0.5 = gradual, 1.0 = instant)
+- `SetScalePivotCenter(flag)` -- `True` = scale around center; `False` = top-left origin
+
+**Usage pattern (game piece that bounces between board positions):**
+```python
+piece = ui.MoveScaleImageBox()
+piece.SetParent(proxy(parent))
+piece.LoadImage("d:/ymir work/ui/minigame/yutnori/player_img.sub")
+piece.SetPosition(x, y)
+piece.SetMoveSpeed(2.5)
+piece.SetMaxScale(1.5)
+piece.SetMaxScaleRate(0.5)
+piece.SetScalePivotCenter(True)
+piece.SetEndMoveEvent(ui.__mem_func__(self.__OnPieceMoveEnd))
+piece.AddFlag("float")
+piece.Show()
+```
+
+**Adjusting speed/scale per segment:**
+```python
+# slow dramatic final move
+piece.SetMoveSpeed(1.5)
+piece.SetMaxScale(1.8)
+piece.SetMaxScaleRate(0.7)
+
+# fast catch/capture move
+piece.SetMoveSpeed(8.0)
+piece.SetMaxScale(1.0)
+piece.SetMaxScaleRate(1.0)
+```
+
+### MoveTextLine
+
+Text that smoothly interpolates position. Same movement API as MoveImageBox.
+
+- **Class:** `MoveTextLine` (extends `TextLine`)
+- **Registration:** `wndMgr.RegisterMoveTextLine(pyObj, layer)`
+
+Same methods: `SetMovePosition`, `SetMoveSpeed`, `MoveStart`, `MoveStop`,
+`GetMove`, `SetEndMoveEvent`. Conditional on `ENABLE_MINI_GAME_YUTNORI` in
+some forks.
 
 ---
 

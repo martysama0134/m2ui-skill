@@ -230,6 +230,177 @@ random selection desyncs visual segment vs awarded reward (failure-atlas entry
 24). Both client and server must agree on `spinCount` -- payload it explicitly
 or hardcode the same constant on both sides.
 
+## 8. Queue-driven animation sequencing
+
+For multi-step movement or event sequences (board game pieces traversing
+waypoints, card deals, chained score effects), use a `deque` processed in
+`OnUpdate`. Each tick checks whether the current animation finished, then
+pops the next action.
+
+### Movement queue (MoveImageBox / MoveScaleImageBox)
+
+```python
+from collections import deque
+
+class MyBoardGame(ui.ScriptWindow):
+    def __init__(self):
+        ui.ScriptWindow.__init__(self)
+        self.moveQueue = deque()
+        self.piece = None
+
+    def Initialize(self):
+        self.moveQueue = deque()
+        self.piece = None
+
+    def StartPath(self, positions):
+        """positions = [(x1,y1), (x2,y2), ...] in global coords."""
+        if len(positions) < 2:
+            return
+        self.piece.SetPosition(positions[0][0], positions[0][1])
+        for pos in positions[1:]:
+            self.moveQueue.append(pos)
+
+    def OnUpdate(self):
+        if not self.moveQueue:
+            return
+        if self.piece.GetMove():
+            return  # still moving to current target
+
+        (x, y) = self.moveQueue.popleft()
+        self.piece.SetPosition(x, y)
+
+        if self.moveQueue:
+            (nx, ny) = self.moveQueue[0]
+            self.piece.SetMovePosition(nx, ny)
+            self.piece.MoveStart()
+        else:
+            self.__OnPathComplete()
+
+    def __OnPathComplete(self):
+        pass  # arrival logic
+```
+
+**Key rules:**
+- Store **coordinate tuples** in the deque, not bound methods or lambdas
+  (prevents circular-ref leaks and keeps the queue serializable).
+- Check `GetMove()` returns `False` before popping -- otherwise you skip
+  waypoints when OnUpdate fires faster than the movement completes.
+- For variable speed per segment (slow final move, fast catch), adjust
+  `SetMoveSpeed` / `SetMaxScale` before each `MoveStart()` call.
+
+### Event queue (typed action dispatch)
+
+For complex sequences mixing delays, network calls, UI updates, and
+animations, store `(event_type, data)` tuples in a deque and dispatch
+in OnUpdate:
+
+```python
+EVENT_DELAY = 0
+EVENT_INSERT_DELAY = 1
+EVENT_NOTICE = 2
+EVENT_SEND_PACKET = 3
+EVENT_SHOW_EFFECT = 4
+
+class MyMinigame(ui.ScriptWindow):
+    def __init__(self):
+        ui.ScriptWindow.__init__(self)
+        self.eventQueue = deque()
+
+    def Initialize(self):
+        self.eventQueue = deque()
+
+    def QueueSequence(self):
+        self.eventQueue.append((EVENT_NOTICE, "Round 1"))
+        self.eventQueue.append((EVENT_INSERT_DELAY, 1500))
+        self.eventQueue.append((EVENT_SEND_PACKET, None))
+        self.eventQueue.append((EVENT_INSERT_DELAY, 2000))
+        self.eventQueue.append((EVENT_SHOW_EFFECT, "score"))
+
+    def OnUpdate(self):
+        if not self.eventQueue:
+            return
+        (evType, data) = self.eventQueue[0]
+
+        if evType == EVENT_DELAY:
+            if app.GetGlobalTime() >= data:
+                self.eventQueue.popleft()
+            return
+
+        self.eventQueue.popleft()
+
+        if evType == EVENT_INSERT_DELAY:
+            deadline = app.GetGlobalTime() + data
+            self.eventQueue.appendleft((EVENT_DELAY, deadline))
+        elif evType == EVENT_NOTICE:
+            if self.noticeText:
+                self.noticeText.SetText(data)
+        elif evType == EVENT_SEND_PACKET:
+            net.SendMiniGameAction()
+        elif evType == EVENT_SHOW_EFFECT:
+            self.__PlayEffect(data)
+```
+
+**Key rules:**
+- `EVENT_INSERT_DELAY` converts a relative ms value into an absolute
+  `EVENT_DELAY` deadline via `appendleft` -- this avoids drift.
+- Peek with `[0]`, only `popleft()` after the event is consumed.
+- `DELAY` events block the queue (early return) until time passes.
+- Clear the queue in `Destroy()` / `Initialize()`.
+
+## 9. Layered AniImageBox effect composition
+
+Stack multiple `AniImageBox` layers at the same position for complex
+visual effects (explosions, score popups, goal celebrations). Chain them
+via `SetEndFrameEvent` callbacks so each layer triggers the next.
+
+```python
+def __BuildEffectLayers(self, parent):
+    self.effectLayer1 = self.__MakeAni(parent, "effect/layer1_", 6)
+    self.effectLayer2 = self.__MakeAni(parent, "effect/layer2_", 6)
+    self.effectLayer3 = self.__MakeAni(parent, "effect/layer3_", 6)
+
+    self.effectLayer1.SetScale(1.2, 1.2)
+    self.effectLayer1.SetEndFrameEvent(ui.__mem_func__(self.__OnLayer1End))
+    self.effectLayer1.SetKeyFrameEvent(ui.__mem_func__(self.__OnLayer1Frame))
+    self.effectLayer2.SetEndFrameEvent(ui.__mem_func__(self.__OnLayer2End))
+
+def __MakeAni(self, parent, prefix, frameCount):
+    ROOT = "d:/ymir work/ui/minigame/"
+    ani = ui.AniImageBox()
+    ani.SetParent(proxy(parent))
+    ani.SetDelay(6)
+    for i in xrange(1, frameCount + 1):
+        ani.AppendImage(ROOT + prefix + str(i) + ".sub")
+    ani.SetPosition(0, 0)
+    ani.Hide()
+    return ani
+
+def __OnLayer1End(self):
+    self.effectLayer1.Hide()
+    self.effectLayer2.SetPosition(*self.effectLayer1.GetLocalPosition())
+    self.effectLayer2.ResetFrame()
+    self.effectLayer2.Show()
+
+def __OnLayer1Frame(self, curFrame):
+    if curFrame == 3:
+        snd.PlaySound("sound/ui/score_hit.wav")
+
+def __OnLayer2End(self):
+    self.effectLayer2.Hide()
+    self.effectLayer3.ResetFrame()
+    self.effectLayer3.Show()
+```
+
+**Key rules:**
+- `ResetFrame()` before `Show()` -- otherwise the animation resumes
+  from whatever frame it stopped on last time.
+- `SetKeyFrameEvent` fires EVERY frame with `(cur_frame)` -- use it for
+  mid-animation sound triggers or state changes, not for heavy logic.
+- All event callbacks wrapped with `ui.__mem_func__`.
+- `Hide()` the previous layer in the end-frame callback before showing
+  the next -- prevents flicker from overlapping frames.
+- Clear all layer refs in `Destroy()` / `Initialize()`.
+
 ## Cross-references
 
 - `patterns.md` section 7.15 (close-on-distance) -- the original pattern; this
@@ -237,3 +408,6 @@ or hardcode the same constant on both sides.
 - `failure-atlas.md` entries 24, 27 -- timer-related symptoms.
 - `bindings.md` `app` module -- verify `app.GetTime`, `app.GetGlobalTime` exist
   in your fork before using.
+- `widgets.md` MoveImageBox / MoveScaleImageBox -- Python wrapper API for
+  movement widgets used in queue pattern 8.
+- `widgets.md` ani_image -- AniImageBox frame/event API used in pattern 9.

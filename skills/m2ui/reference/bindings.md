@@ -202,8 +202,10 @@ Window manager — handles all UI window operations at C++ level. Most important
 
 | Function | Purpose |
 |----------|---------|
-| `SetDelay(handle, delay)` | Set animation frame delay |
+| `SetDelay(handle, delay)` | Set animation frame delay (ms) |
 | `AppendImage(handle, filename)` | Add animation frame |
+| `ResetFrame(handle)` | Reset playback to frame 0 |
+| `SetRenderingRectWithScale(handle, l, t, r, b)` | Set rendering rect preserving current scale (used by `SetPercentageWithScale`) |
 
 ### Button Operations
 

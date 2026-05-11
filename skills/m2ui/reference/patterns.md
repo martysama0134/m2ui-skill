@@ -345,6 +345,10 @@ self.InsertChild("uniqueName", obj)   # register for GetChild() access
 `self.GetChild("uniqueName")` and so the `@ui.WindowDestroy` decorator can clean
 it up automatically.
 
+> **Shorthand factories:** `ui.MakeImageBox`, `ui.MakeButton`, `ui.MakeTextLine`,
+> `ui.MakeSlotBar` wrap the create-parent-configure-show sequence into one call.
+> Full signatures and gotchas in `widgets.md` section "Runtime factories (ui.Make*)".
+
 ### 2.3 Horizontal bar separator pattern
 
 ```python
@@ -2814,3 +2818,187 @@ self.myFeatureButton.SetEvent(ui.__mem_func__(self.ToggleMyFeatureWindow))
   before assigning. Common keys are already taken:
   `C` (character), `V` (skill), `I` (inventory), `O` (dragon soul),
   `M` (minimap), `L` (chat log), `G` (guild), `N` (quest).
+
+## 13. Lazy-Load Sub-Window Pattern
+
+When a parent window owns heavy child windows (costume panel, belt
+inventory, pet info) that the player may never open, defer their script
+loading until first `Show()`. This avoids loading all uiscript files at
+interface creation time.
+
+```python
+class CostumeWindow(ui.ScriptWindow):
+    def __init__(self, wndParent):
+        ui.ScriptWindow.__init__(self)
+        self.isLoaded = 0
+        self.wndParent = wndParent
+
+    def Initialize(self):
+        self.isLoaded = 0
+        self.wndParent = None
+
+    def __LoadWindow(self):
+        if self.isLoaded == 1:
+            return
+        self.isLoaded = 1
+
+        try:
+            pyScrLoader = ui.PythonScriptLoader()
+            pyScrLoader.LoadScriptFile(self, "uiscript/costumewindow.py")
+        except:
+            import exception
+            exception.Abort("CostumeWindow.__LoadWindow.LoadObject")
+
+        try:
+            self.GetChild("TitleBar").SetCloseEvent(ui.__mem_func__(self.Close))
+            self.wndSlot = self.GetChild("CostumeSlot")
+        except:
+            import exception
+            exception.Abort("CostumeWindow.__LoadWindow.BindObject")
+
+    def Show(self):
+        self.__LoadWindow()
+        self.RefreshSlot()
+        ui.ScriptWindow.Show(self)
+
+    @ui.WindowDestroy
+    def Destroy(self):
+        self.Initialize()
+```
+
+**Key rules:**
+- `isLoaded` is an int flag (0/1), not a bool -- matches engine convention.
+- `__LoadWindow()` is idempotent -- safe to call multiple times.
+- `Show()` always calls `__LoadWindow()` before showing, so first
+  open triggers the load; subsequent opens skip it.
+- Reset `isLoaded = 0` in `Initialize()` / `Destroy()` so a re-created
+  instance reloads cleanly.
+- The parent passes `self` to the child constructor so the child can
+  query parent state (position, slot data).
+
+## 14. Inner Helper Widget Class
+
+When a UI module needs a composite widget used in multiple places within
+that module (a clickable text slot with a visual reflector, a card cell
+with overlays, a board tile with animation), define it as an inner class
+in the same file. This keeps the composition self-contained without
+polluting the global namespace.
+
+```python
+class MouseReflector(ui.Window):
+    """Visual overlay that draws a colored bar on mouse-down state."""
+    def __init__(self, parent):
+        ui.Window.__init__(self)
+        self.SetParent(parent)
+        self.AddFlag("not_pick")
+        self.isDown = False
+
+    def __del__(self):
+        ui.Window.__del__(self)
+
+    def Down(self):
+        self.isDown = True
+
+    def Up(self):
+        self.isDown = False
+
+    def OnRender(self):
+        if self.isDown:
+            grp.SetColor(ui.WHITE_COLOR)
+        else:
+            grp.SetColor(ui.HALF_WHITE_COLOR)
+        x, y = self.GetGlobalPosition()
+        grp.RenderBar(x + 2, y + 2, self.GetWidth() - 4, self.GetHeight() - 4)
+
+
+class SelectTextSlot(ui.ImageBox):
+    """Clickable slot with centered text and MouseReflector feedback."""
+    def __init__(self, x, y):
+        ui.ImageBox.__init__(self)
+        self.SetPosition(x, y)
+        self.LoadImage("d:/ymir work/ui/public/Parameter_Slot_03.sub")
+        self.reflector = MouseReflector(self)
+        self.reflector.SetSize(self.GetWidth(), self.GetHeight())
+        self.textLine = ui.MakeTextLine(self)
+        self.clickEvent = None
+        self.isSelected = False
+        self.Show()
+
+    def __del__(self):
+        ui.ImageBox.__del__(self)
+
+    def SetEvent(self, event):
+        self.clickEvent = event
+
+    def SetText(self, text):
+        self.textLine.SetText(text)
+
+    def OnMouseLeftButtonDown(self):
+        if self.isSelected:
+            return
+        self.isSelected = True
+        self.reflector.Down()
+        if self.clickEvent:
+            self.clickEvent()
+
+    def Deselect(self):
+        self.isSelected = False
+        self.reflector.Up()
+```
+
+**Key rules:**
+- Inner helper inherits from a base ui class (`ui.Window`, `ui.ImageBox`).
+- Has proper `__del__` calling parent `__del__`.
+- Uses `AddFlag("not_pick")` on decorative sub-widgets so clicks pass
+  through to the interactive parent.
+- The parent module creates instances in a loop or grid, stores refs in
+  a list/dict on `self`, and cleans them up in `Destroy()`.
+- Keep inner classes small (< 60 lines). If the helper grows complex
+  enough to need its own uiscript or becomes reused across modules,
+  promote it to its own `ui*.py` file.
+
+## 15. 2D Array Widget Grid
+
+When a UI needs a grid of identically-structured widget cells where both
+row and column position matter (card collection, star ratings per cell,
+attendance calendar), use nested lists instead of flat slot indices.
+
+```python
+COLS = 4
+ROWS = 2
+STAR_COUNT = 5
+
+# Initialize 2D arrays for each widget layer
+self.cardImages = [[None for c in xrange(COLS)] for r in xrange(ROWS)]
+self.cardStars = [[[None for s in xrange(STAR_COUNT)] for c in xrange(COLS)] for r in xrange(ROWS)]
+
+# Build grid
+for row in xrange(ROWS):
+    for col in xrange(COLS):
+        x = 21 + col * 121
+        y = 38 + row * 201
+        img = ui.ExpandedImageBox()
+        img.SetParent(proxy(self.contentPanel))
+        img.LoadImage(DEFAULT_CARD_IMAGE)
+        img.SetPosition(x, y)
+        img.Show()
+        self.cardImages[row][col] = img
+
+        for s in xrange(STAR_COUNT):
+            star = ui.ExpandedImageBox()
+            star.SetParent(proxy(self.contentPanel))
+            star.LoadImage(STAR_OFF_IMAGE)
+            star.SetPosition(x + s * 16, y + 130)
+            star.Show()
+            self.cardStars[row][col][s] = star
+```
+
+**When to use vs flat list:**
+- **2D array** -- when code needs `grid[row][col]` addressing (card grids,
+  board games, calendars with week/day structure).
+- **Flat list** -- when code only needs sequential index (slot grids,
+  inventory pages, attendance buttons). Prefer flat lists for
+  `SlotWindow`-backed grids where `start_index` handles the mapping.
+
+**Cleanup:** Iterate all dimensions in `Destroy()` / `Initialize()` and
+set each cell to `None`.
