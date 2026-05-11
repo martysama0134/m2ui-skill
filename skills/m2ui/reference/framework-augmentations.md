@@ -363,6 +363,7 @@ potential `OnEndFrame` reset. Frame 0 fires on both cycle-wrap and first frame.
 Add the binding function (near the other AniImageBox bindings):
 
 ```cpp
+#if defined(__BL_ON_END_KEY_FRAME__)
 PyObject * wndImageResetFrame(PyObject * poSelf, PyObject * poArgs)
 {
     UI::CWindow * pWindow;
@@ -373,6 +374,7 @@ PyObject * wndImageResetFrame(PyObject * poSelf, PyObject * poArgs)
 
     return Py_BuildNone();
 }
+#endif
 ```
 
 Add to the method table (after `AppendImage`):
@@ -381,11 +383,15 @@ Add to the method table (after `AppendImage`):
 // AniImageBox
 { "SetDelay",                  wndImageSetDelay,                  METH_VARARGS },
 { "AppendImage",               wndImageAppendImage,               METH_VARARGS },
+#if defined(__BL_ON_END_KEY_FRAME__)
 { "ResetFrame",                wndImageResetFrame,                METH_VARARGS },
+#endif
 ```
 
-**Note:** `ResetFrame` binding is NOT guarded — the C++ method exists
-unconditionally. Only `OnKeyFrame` needs the guard.
+**Note:** Both the binding function and its method table entry are guarded
+by `__BL_ON_END_KEY_FRAME__`. The C++ `ResetFrame` method itself exists
+unconditionally in `PythonWindow.cpp`, but the Python-facing binding is
+gated so the entire feature toggles cleanly from one define.
 
 ### Piece 4 — Python ui.py: gated event setters
 
@@ -414,13 +420,13 @@ class AniImageBox(Window):
     def AppendImage(self, filename):
         wndMgr.AppendImage(self.hWnd, filename)
 
-    def ResetFrame(self):
-        wndMgr.ResetFrame(self.hWnd)
-
     def SetPercentage(self, curValue, maxValue):
         wndMgr.SetRenderingRect(self.hWnd, 0.0, 0.0, -1.0 + float(curValue) / float(maxValue), 0.0)
 
     if app.__BL_ON_END_KEY_FRAME__:
+        def ResetFrame(self):
+            wndMgr.ResetFrame(self.hWnd)
+
         def OnEndFrame(self):
             if self.end_frame_event:
                 self.end_frame_event()
