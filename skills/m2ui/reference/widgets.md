@@ -550,16 +550,19 @@ Animated image that cycles through a sequence of frames.
 **Key methods:**
 - `AppendImage(filename)` -- add a frame
 - `SetDelay(delay)` -- set animation delay (milliseconds)
-- `ResetFrame()` -- reset playback to frame 0
 - `SetPercentage(curValue, maxValue)` -- horizontal fill (via rendering rect)
-- `SetPercentageWithScale(curValue, maxValue)` -- horizontal fill preserving current scale
 - `SetScale(xScale, yScale)` -- set display scale
+
+**Augmentation-dependent methods** (require `framework-augmentations.md` AniImageBox patch):
+- `ResetFrame()` -- reset playback to frame 0 (C++ exists, needs wndMgr binding)
 - `SetEndFrameEvent(event)` -- callback when animation cycle completes
 - `SetKeyFrameEvent(event)` -- callback per-frame with `(cur_frame)` arg; fires every frame
 
-**Notes:** Calls `OnEndFrame()` when animation completes a cycle (override in subclass).
-`OnKeyFrame(cur_frame)` fires every frame tick and receives the current frame index.
-Both events must be wrapped with `ui.__mem_func__` when referencing `self`.
+**Vanilla alternative:** Override `OnEndFrame(self)` directly in a subclass (C++ calls it via `PyCallClassMemberFunc`). No setter needed, but less flexible for dynamic callback assignment.
+
+**Notes:** `OnEndFrame()` is called by C++ when the animation completes a cycle.
+`OnKeyFrame(cur_frame)` fires every frame tick (augmentation adds the C++ call).
+Both event setters store callables that must be wrapped with `ui.__mem_func__`.
 
 #### Gotcha: Frame timing units
 
