@@ -261,10 +261,14 @@ Three capabilities to `AniImageBox`:
 | `SetKeyFrameEvent(event)` | Python callback every frame tick with `(cur_frame)` arg | **New** C++ `OnKeyFrame` call |
 | `ResetFrame()` Python wrapper | Reset animation to frame 0 from Python | C++ `ResetFrame` (already exists, needs wndMgr binding) |
 
+### Guard symbol
+
+`__BL_ON_END_KEY_FRAME__` — C++ `#if defined(...)`, Python `if app.__BL_ON_END_KEY_FRAME__:`.
+
 ### Prerequisites — verify before applying
 
 ```
-# C++ must have these (all present in asf-v5-ex-v5.9-patched):
+# C++ must have these:
 grep "OnEndFrame" EterPythonLib/PythonWindow.cpp      # PyCallClassMemberFunc line
 grep "ResetFrame" EterPythonLib/PythonWindow.cpp       # m_bycurIndex = 0
 grep "m_bycurIndex" EterPythonLib/PythonWindow.h       # BYTE member
@@ -276,60 +280,66 @@ grep "class AniImageBox" pack/pack/root/ui.py          # with OnEndFrame stub
 If `OnEndFrame` in C++ does NOT call `PyCallClassMemberFunc`, this augmentation
 cannot work — the C++→Python callback bridge is missing entirely.
 
+### Detection
+
+```
+# Already applied?
+grep "__BL_ON_END_KEY_FRAME__" Locale_inc.h              # C++ define
+grep "__BL_ON_END_KEY_FRAME__" PythonApplicationModule.cpp # Python constant
+grep "SetKeyFrameEvent" pack/pack/root/ui.py              # Python setter
+```
+
 ---
+
+### Piece 0 — Define guard + Python constant
+
+**File:** `UserInterface/Locale_inc.h`
+
+```cpp
+#define __BL_ON_END_KEY_FRAME__
+```
+
+**File:** `UserInterface/PythonApplicationModule.cpp` (near other `__BL_` constants)
+
+```cpp
+#if defined(__BL_ON_END_KEY_FRAME__)
+    PyModule_AddIntConstant(poModule, "__BL_ON_END_KEY_FRAME__",	1);
+#else
+    PyModule_AddIntConstant(poModule, "__BL_ON_END_KEY_FRAME__",	0);
+#endif
+```
 
 ### Piece 1 — C++ header: add `OnKeyFrame` declaration
 
 **File:** `EterPythonLib/PythonWindow.h`, inside `class CAniImageBox`
 
 ```cpp
-// Before (protected section):
-protected:
-    void OnUpdate();
-    void OnRender();
-    void OnChangePosition();
-    virtual void OnEndFrame();
-
-// After:
-protected:
-    void OnUpdate();
-    void OnRender();
-    void OnChangePosition();
-    virtual void OnEndFrame();
-    void OnKeyFrame();
+        virtual void OnEndFrame();
+#if defined(__BL_ON_END_KEY_FRAME__)
+        void OnKeyFrame();
+#endif
 ```
 
-No new member variables needed — `m_bycurIndex` already exists and is the
-frame index passed to Python.
+No new member variables needed — `m_bycurIndex` already exists.
 
-### Piece 2 — C++ implementation: add `OnKeyFrame` and call it from `OnUpdate`
+### Piece 2 — C++ implementation: add `OnKeyFrame` and call from `OnUpdate`
 
 **File:** `EterPythonLib/PythonWindow.cpp`
 
 Add the new method right after `OnEndFrame`:
 
 ```cpp
+#if defined(__BL_ON_END_KEY_FRAME__)
 void CAniImageBox::OnKeyFrame()
 {
     PyCallClassMemberFunc(m_poHandler, "OnKeyFrame", Py_BuildValue("(i)", m_bycurIndex));
 }
+#endif
 ```
 
-Modify `OnUpdate` to call `OnKeyFrame` on every frame advance:
+In `OnUpdate`, add call after the frame-advance block:
 
 ```cpp
-void CAniImageBox::OnUpdate()
-{
-#if defined(__BL_CLIP_MASK__)
-    if (m_bEnableMask && m_pMaskWindow)
-        m_rMaskRect = m_pMaskWindow->GetRect();
-#endif
-    ++m_bycurDelay;
-    if (m_bycurDelay < m_byDelay)
-        return;
-
-    m_bycurDelay = 0;
-
     ++m_bycurIndex;
     if (m_bycurIndex >= m_ImageVector.size())
     {
@@ -337,7 +347,9 @@ void CAniImageBox::OnUpdate()
         OnEndFrame();
     }
 
-    OnKeyFrame();  // <-- ADD: fires every frame advance with current index
+#if defined(__BL_ON_END_KEY_FRAME__)
+    OnKeyFrame();
+#endif
 }
 ```
 
@@ -348,7 +360,7 @@ potential `OnEndFrame` reset. Frame 0 fires on both cycle-wrap and first frame.
 
 **File:** `EterPythonLib/PythonWindowManagerModule.cpp`
 
-Add the binding function (near the other AniImageBox bindings around line 2112):
+Add the binding function (near the other AniImageBox bindings):
 
 ```cpp
 PyObject * wndImageResetFrame(PyObject * poSelf, PyObject * poArgs)
@@ -363,54 +375,35 @@ PyObject * wndImageResetFrame(PyObject * poSelf, PyObject * poArgs)
 }
 ```
 
-Add to the method table (after the `AppendImage` entry around line 2801):
+Add to the method table (after `AppendImage`):
 
 ```cpp
 // AniImageBox
 { "SetDelay",                  wndImageSetDelay,                  METH_VARARGS },
 { "AppendImage",               wndImageAppendImage,               METH_VARARGS },
-{ "ResetFrame",                wndImageResetFrame,                METH_VARARGS },  // <-- ADD
+{ "ResetFrame",                wndImageResetFrame,                METH_VARARGS },
 ```
 
-### Piece 4 — Python ui.py: add event setters and ResetFrame wrapper
+**Note:** `ResetFrame` binding is NOT guarded — the C++ method exists
+unconditionally. Only `OnKeyFrame` needs the guard.
+
+### Piece 4 — Python ui.py: gated event setters
 
 **File:** `pack/pack/root/ui.py`, `class AniImageBox`
 
 ```python
-# Before:
 class AniImageBox(Window):
     def __init__(self, layer = "UI"):
         Window.__init__(self, layer)
+        if app.__BL_ON_END_KEY_FRAME__:
+            self.end_frame_event = None
+            self.key_frame_event = None
 
     def __del__(self):
         Window.__del__(self)
-
-    def RegisterWindow(self, layer):
-        self.hWnd = wndMgr.RegisterAniImageBox(self, layer)
-
-    def SetDelay(self, delay):
-        wndMgr.SetDelay(self.hWnd, delay)
-
-    def AppendImage(self, filename):
-        wndMgr.AppendImage(self.hWnd, filename)
-
-    def SetPercentage(self, curValue, maxValue):
-        wndMgr.SetRenderingRect(self.hWnd, 0.0, 0.0, -1.0 + float(curValue) / float(maxValue), 0.0)
-
-    def OnEndFrame(self):
-        pass
-
-# After:
-class AniImageBox(Window):
-    def __init__(self, layer = "UI"):
-        Window.__init__(self, layer)
-        self.end_frame_event = None
-        self.key_frame_event = None
-
-    def __del__(self):
-        Window.__del__(self)
-        self.end_frame_event = None
-        self.key_frame_event = None
+        if app.__BL_ON_END_KEY_FRAME__:
+            self.end_frame_event = None
+            self.key_frame_event = None
 
     def RegisterWindow(self, layer):
         self.hWnd = wndMgr.RegisterAniImageBox(self, layer)
@@ -427,19 +420,23 @@ class AniImageBox(Window):
     def SetPercentage(self, curValue, maxValue):
         wndMgr.SetRenderingRect(self.hWnd, 0.0, 0.0, -1.0 + float(curValue) / float(maxValue), 0.0)
 
-    def SetEndFrameEvent(self, event):
-        self.end_frame_event = event
+    if app.__BL_ON_END_KEY_FRAME__:
+        def OnEndFrame(self):
+            if self.end_frame_event:
+                self.end_frame_event()
 
-    def SetKeyFrameEvent(self, event):
-        self.key_frame_event = event
+        def SetEndFrameEvent(self, event):
+            self.end_frame_event = event
 
-    def OnEndFrame(self):
-        if self.end_frame_event:
-            self.end_frame_event()
+        def OnKeyFrame(self, cur_frame):
+            if self.key_frame_event:
+                self.key_frame_event(cur_frame)
 
-    def OnKeyFrame(self, cur_frame):
-        if self.key_frame_event:
-            self.key_frame_event(cur_frame)
+        def SetKeyFrameEvent(self, event):
+            self.key_frame_event = event
+    else:
+        def OnEndFrame(self):
+            pass
 ```
 
 ### Verification checklist
