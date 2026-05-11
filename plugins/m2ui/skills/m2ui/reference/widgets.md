@@ -549,14 +549,25 @@ Animated image that cycles through a sequence of frames.
 
 **Key methods:**
 - `AppendImage(filename)` -- add a frame
-- `SetDelay(delay)` -- set animation delay
+- `SetDelay(delay)` -- set animation frame delay (update ticks, not ms; `6` at 60 FPS ≈ 10 changes/sec)
 - `SetPercentage(curValue, maxValue)` -- horizontal fill (via rendering rect)
 
-**Notes:** Calls `OnEndFrame()` when animation completes a cycle (override in subclass).
+**Augmentation-dependent methods** (require `framework-augmentations.md` AniImageBox patch):
+- `ResetFrame()` -- reset playback to frame 0 (C++ exists, needs wndMgr binding)
+- `SetEndFrameEvent(event)` -- callback when animation cycle completes
+- `SetKeyFrameEvent(event)` -- callback per-frame with `(cur_frame)` arg; fires every frame
+
+**Vanilla alternative:** Override `OnEndFrame(self)` directly in a subclass (C++ calls it via `PyCallClassMemberFunc`). No setter needed, but less flexible for dynamic callback assignment.
+
+**Notes:** `OnEndFrame()` is called by C++ when the animation completes a cycle.
+`OnKeyFrame(cur_frame)` fires every frame tick (augmentation adds the C++ call).
+Both event setters store callables that must be wrapped with `ui.__mem_func__`.
 
 #### Gotcha: Frame timing units
 
-`AniImage.SetDelay(delay_ms)` takes milliseconds (engine spec, not seconds). A `SetDelay(50)` cycles frames every 50 ms = 20 FPS. Common bug: assuming seconds, getting a 50-second per-frame animation.
+`AniImage.SetDelay(delay)` takes **update ticks** (OnUpdate cycles), not milliseconds
+or seconds. A `SetDelay(6)` at 60 FPS means a frame advance every 6 ticks ≈ 10
+animation steps per second. `SetDelay(1)` = maximum speed (every tick).
 
 Loop behavior:
 - Default: loops indefinitely from frame 0 to last-loaded frame.
@@ -948,6 +959,9 @@ They must be created in Python code, not in uiscript dicts.
 | `ComboBox` | `Window` | Dropdown select box (see caveat below) |
 | `Bar3D` | `Window` | 3D-style bar (same as SlotBar internally) |
 | `RadioButtonGroup` | `NoWindow` | Helper for radio button grouping |
+| `MoveImageBox` | `ImageBox` | Image with smooth position interpolation |
+| `MoveScaleImageBox` | `MoveImageBox` | Image with movement + scale animation |
+| `MoveTextLine` | `TextLine` | Text with smooth position interpolation |
 
 ### ComboBox dropdown caveat (load-time consideration)
 
@@ -966,6 +980,98 @@ Mitigation patterns (pick one when generating a form with multiple `ComboBox`):
 - **Replace with `radio_button` group** when there are ≤ 4 options. Trades vertical space for visibility.
 
 For symptom-driven diagnosis of "dropdown covers next row", see `failure-atlas.md` entry 14.
+
+### MoveImageBox
+
+Image that smoothly interpolates position from current to a target over time.
+Requires `ENABLE_MINI_GAME_YUTNORI` or equivalent compile flag in many forks.
+
+- **Class:** `MoveImageBox` (extends `ImageBox`)
+- **Registration:** `wndMgr.RegisterMoveImageBox(pyObj, layer)`
+- **No uiscript dict support** -- code-only.
+
+**Key methods:**
+- `LoadImage(filename)` -- inherited from ImageBox
+- `SetMovePosition(dst_x, dst_y)` -- set destination (global coords)
+- `SetMoveSpeed(speed)` -- pixels-per-tick speed (float; 2.5 = moderate, 10.0 = fast)
+- `MoveStart()` -- begin interpolation toward target
+- `MoveStop()` -- halt at current position
+- `GetMove()` -- returns `True` while moving, `False` when arrived
+- `SetEndMoveEvent(event)` -- callback when movement completes (wrap with `ui.__mem_func__`)
+
+**Lifecycle pattern:**
+```python
+img = ui.MoveImageBox()
+img.SetParent(proxy(parent))
+img.LoadImage("d:/ymir work/ui/minigame/piece.sub")
+img.SetPosition(startX, startY)
+img.SetMoveSpeed(2.5)
+img.SetEndMoveEvent(ui.__mem_func__(self.__OnMoveEnd))
+img.AddFlag("float")
+img.Show()
+
+# later, to start movement:
+img.SetMovePosition(targetX, targetY)
+img.MoveStart()
+```
+
+**Gotcha:** `SetMovePosition` uses **global** coordinates, not parent-relative.
+If parent moves, recalculate with `parent.GetGlobalPosition()`.
+
+### MoveScaleImageBox
+
+Extends MoveImageBox with scale animation during movement -- image grows
+toward a peak scale at the midpoint of travel, then shrinks back.
+Requires `ENABLE_MINI_GAME_YUTNORI` or equivalent compile flag.
+
+- **Class:** `MoveScaleImageBox` (extends `MoveImageBox`)
+- **Registration:** `wndMgr.RegisterMoveScaleImageBox(pyObj, layer)`
+- **No uiscript dict support** -- code-only.
+
+**Additional methods (on top of MoveImageBox):**
+- `SetMaxScale(scale)` -- peak scale factor during movement (1.5 = 50% larger)
+- `SetMaxScaleRate(rate)` -- scale interpolation factor (behavior depends on movement distance; set AFTER `SetMovePosition`)
+- `SetScalePivotCenter(flag)` -- `True` = scale around center; `False` = top-left origin
+
+**Usage pattern (game piece that bounces between board positions):**
+```python
+piece = ui.MoveScaleImageBox()
+piece.SetParent(proxy(parent))
+piece.LoadImage("d:/ymir work/ui/minigame/yutnori/player_img.sub")
+piece.SetPosition(x, y)
+piece.SetMoveSpeed(2.5)
+piece.SetMaxScale(1.5)
+piece.SetMaxScaleRate(0.5)
+piece.SetScalePivotCenter(True)
+piece.SetEndMoveEvent(ui.__mem_func__(self.__OnPieceMoveEnd))
+piece.AddFlag("float")
+piece.Show()
+```
+
+**Adjusting speed/scale per segment** (set AFTER `SetMovePosition`, before `MoveStart`):
+```python
+piece.SetMovePosition(targetX, targetY)
+piece.SetMoveSpeed(1.5)
+piece.SetMaxScale(1.8)
+piece.SetMaxScaleRate(0.7)
+piece.MoveStart()
+```
+
+### MoveTextLine
+
+Text that smoothly interpolates position. Same movement API as MoveImageBox.
+
+- **Class:** `MoveTextLine` (extends `TextLine`)
+- **Registration:** `wndMgr.RegisterMoveTextLine(pyObj, layer)`
+
+Same methods: `SetMovePosition`, `SetMoveSpeed`, `MoveStart`, `MoveStop`,
+`GetMove`, `SetEndMoveEvent`. Conditional on `ENABLE_MINI_GAME_YUTNORI` in
+some forks.
+
+**Note:** `MoveTextLine.SetEndMoveEvent(event, *args)` accepts `*args` and
+dispatches via `apply(func, args)`. `MoveImageBox.SetEndMoveEvent(event)`
+does NOT accept extra args — it calls `event()` with no arguments. Check
+your fork's `ui.py` to confirm which signature applies.
 
 ---
 

@@ -28,7 +28,7 @@ Detect the appropriate mode from the user's input:
 | Specific widget you haven't used recently | `skills/m2ui/reference/widgets.md` — jump to that widget's section |
 | Locale-heavy work | `skills/m2ui/reference/locale.md` |
 | Calling a C++ Python API not in context | `skills/m2ui/reference/bindings.md` |
-| Patterns reminder | `skills/m2ui/reference/patterns.md` (relevant section only) |
+| Patterns reminder (Initialize/Destroy, scrollbar, lazy-load sub-windows, inner helper classes, 2D grids) | `skills/m2ui/reference/patterns.md` (relevant section only) |
 | User describes a visible symptom ("X looks broken", "leak after closing") | `skills/m2ui/reference/failure-atlas.md` — load FIRST before anchors |
 | Visual style/sizing for a new window matters | `skills/m2ui/reference/visual-conventions.md` — pick archetype + chrome + palette |
 
@@ -153,4 +153,4 @@ Always provide an **interfacemodule.py integration snippet** showing import, ins
 
 For the integration snippet shape and variations, load `skills/m2ui/reference/integration.md`. Every emission produces an integration snippet; the reference catalogs the structural pattern + lazy-init / gated-toggle / tooltip-binding variations.
 
-For windows with an `OnUpdate` body (animation, polling, fade, daily-event timing), load `skills/m2ui/reference/timer-patterns.md` for the canonical OnUpdate idiom catalog.
+For windows with an `OnUpdate` body (animation, polling, fade, daily-event timing, movement queues, effect chains), load `skills/m2ui/reference/timer-patterns.md` for the canonical OnUpdate idiom catalog.

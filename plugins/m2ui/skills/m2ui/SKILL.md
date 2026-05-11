@@ -53,12 +53,12 @@ Based on detected mode, read the corresponding mode file from `modes/` directory
 | Specific widget you haven't used recently | `reference/widgets.md` — jump to that widget's section |
 | Locale-heavy work (lots of new strings) | `reference/locale.md` |
 | Calling a C++ Python API (`net.X`, `player.X`, etc.) NOT already in context | `reference/bindings.md` — grep for the function |
-| Patterns reminder needed (Initialize/Destroy, scrollbar wiring, ListBoxEx, integration template) | `reference/patterns.md` — jump to the relevant section |
+| Patterns reminder needed (Initialize/Destroy, scrollbar wiring, ListBoxEx, integration template, lazy-load sub-windows, inner helper classes, 2D grids) | `reference/patterns.md` — jump to the relevant section |
 | Auditing existing code for anti-patterns | Mode-specific: `modes/diagnose.md` already loaded by mode dispatch |
 | User describes a visible symptom ("X looks broken", "click does nothing", "leak after closing") | `reference/failure-atlas.md` — jump to the matching symptom heading FIRST, before loading anchors |
 | Composing a window from scratch where the visual style/sizing matters | `reference/visual-conventions.md` — pick archetype + chrome + palette before coding |
 | Generated a window and need to wire it into the main interface | `reference/integration.md` (always — runs after every emission) |
-| Window has an OnUpdate body (animation / polling / fade / daily-event timing) | `reference/timer-patterns.md` |
+| Window has an OnUpdate body (animation / polling / fade / daily-event timing / movement queue / effect chains) | `reference/timer-patterns.md` |
 
 **Anchor selection** — when generating a window from scratch, follow the 2-step decision tree.
 
