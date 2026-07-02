@@ -32,29 +32,11 @@ Tell the user which style you chose and why. Let them override.
 
 ## Step 4: Generate Code
 
-Read these reference files (paths relative to repo root):
-- `skills/m2ui/reference/mental-model.md` for the deprogram-web-assumptions floor (mandatory)
-- `skills/m2ui/reference/event-binding.md` for the callback wrapping matrix (mandatory)
-- `skills/m2ui/reference/widgets.md` for exact property names and valid values
-- `skills/m2ui/reference/patterns.md` for the appropriate style template
-- `skills/m2ui/reference/locale.md` for locale string rules
-- `skills/m2ui/reference/visual-conventions.md` for chrome / archetype / palette when visual style matters
-- `skills/m2ui/reference/framework-augmentations.md` when emitting Pattern B with extra args (Critical Rule 19)
-- `skills/m2ui/reference/integration.md` after the window is built — for the integration snippet shape
-- `skills/m2ui/reference/timer-patterns.md` when window has an OnUpdate body (animation, polling, fade, daily-event timing)
+Load references per SKILL.md (mandatory floor + conditional-load table). Additionally mandatory when generating in talk mode (not conditional here): `skills/m2ui/reference/widgets.md` (exact property names/valid values for every widget type emitted), `skills/m2ui/reference/patterns.md` (style template section), `skills/m2ui/reference/locale.md` (locale string rules).
 
 Generate:
 1. The uiscript file (if script-backed) or `__LoadDialog` method (if code-only)
-2. The root `ui*.py` class with full boilerplate:
-   - `@ui.WindowDestroy` on `Destroy()`
-   - `Initialize()` setting all vars to None
-   - `__del__` calling `ui.ScriptWindow.__del__(self)`
-   - `Open()`/`Close()` pattern
-   - `OnPressEscapeKey()` returning `True`
-   - All callbacks with `self` wrapped per `skills/m2ui/reference/event-binding.md` matrix (`ui.__mem_func__`, `SAFE_SetEvent` if fork provides it, or `lambda r=proxy(self): r.X()`)
-   - No bare bound methods or self-capturing lambdas — pass extra args directly to event setters
-   - `"not_pick"` flag on decorative elements
-   - `constInfo.intWithCommas()` for large numbers
+2. The root `ui*.py` class with full boilerplate per SKILL.md Critical Rules
 3. Locale string entries to append
 4. An interfacemodule.py integration snippet
 

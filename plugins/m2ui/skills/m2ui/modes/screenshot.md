@@ -47,22 +47,15 @@ Identify all visible UI elements and map them to Metin2 widget types:
 
 ## Step 4: Generate Code
 
-Read these reference files (paths relative to repo root):
-- `skills/m2ui/reference/event-binding.md` for the callback wrapping matrix (mandatory)
-- `skills/m2ui/reference/widgets.md` for exact property names, valid values, and per-widget caveats (read EVERY widget section for widgets the layout uses — chrome/sizing rules and gotchas live in those sections, e.g., the `text` `all_align` re-anchor warning, the `ComboBox` dropdown-direction caveat)
-- `skills/m2ui/reference/visual-conventions.md` for chrome / archetype / palette rules — mandatory for screenshot replication so the output uses native vocabulary, not the source mockup's aesthetic
-- `skills/m2ui/reference/patterns.md` for the appropriate style template
-- `skills/m2ui/reference/locale.md` for locale string rules
+Load references per SKILL.md (mandatory floor + conditional-load table). Additionally mandatory in screenshot mode (not conditional here):
+- `skills/m2ui/reference/widgets.md` — read EVERY widget section for widgets the layout uses; chrome/sizing rules and gotchas live there (e.g., the `text` `all_align` re-anchor warning, the `ComboBox` dropdown-direction caveat)
+- `skills/m2ui/reference/visual-conventions.md` — mandatory for screenshot replication, so the output uses native vocabulary, not the source mockup's aesthetic
+- `skills/m2ui/reference/patterns.md` — the appropriate style template section
+- `skills/m2ui/reference/locale.md` — locale string rules
 
 Generate:
 1. The uiscript file (if script-backed style) or `__LoadDialog` method (if code-only)
-2. The root `ui*.py` class with all required patterns:
-   - `@ui.WindowDestroy` on `Destroy()`
-   - `Initialize()` setting all vars to None
-   - `__del__` calling `ui.ScriptWindow.__del__(self)`
-   - `Open()`/`Close()` pattern
-   - `OnPressEscapeKey()` returning `True`
-   - All callbacks with `self` wrapped per `skills/m2ui/reference/event-binding.md` matrix (`ui.__mem_func__`, `SAFE_SetEvent` if fork provides it, or `lambda r=proxy(self): r.X()`)
+2. The root `ui*.py` class with full boilerplate per SKILL.md Critical Rules
 3. Locale string entries to append to appropriate `locale_*_ex.txt`
 4. An interfacemodule.py integration snippet
 

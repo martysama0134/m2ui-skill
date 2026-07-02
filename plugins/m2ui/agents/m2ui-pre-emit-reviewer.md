@@ -37,20 +37,20 @@ You operate in the same plugin repo as the parent agent. Load these refs ONLY as
 
 For each category, walk every relevant line and produce a finding for any violation. Cite `file:line` for every finding.
 
-### 1. Pre-Emit Self-Review checklist (SKILL.md items 1-16)
+### 1. Pre-Emit Self-Review checklist (SKILL.md — all items)
 
-For each generated file, verify all 16 items. The most-violated:
+For each generated file, verify every checklist item. The most-violated (cited by frozen Critical Rule number):
 
-- Item 1: `@ui.WindowDestroy` decorator on every `Destroy()` method
-- Item 5: every callback wrapped per `event-binding.md` matrix — NEVER bare bound (`btn.SetEvent(self.OnClick)`) NEVER self-capturing lambda (`btn.SetEvent(lambda: self.OnClick())`)
-- Item 7: `OnPressEscapeKey()` returns `True` (not `None`, not `False`)
-- Item 9: every user-visible string via `localeInfo.*` (root) or `uiScriptLocale.*` (uiscript dict) — NEVER hardcoded
-- Item 11: `"not_pick"` flag on every decorative widget in uiscript dict
-- Item 14: Python 2.7 — `//` (not `/`) for int division, `in` (not `has_key()`), keep `xrange`
-- Item 15: every asset path `d:/ymir work/ui/...` lowercase forward-slash; NO invented paths
-- Item 16: every `net.X` / `player.X` / `item.X` / `chr.X` / `app.X` / `wndMgr.X` / `chat.X` / `quest.X` call verified against `bindings.md` — NO invented APIs
-- Item 15 (alignment): every widget with `all_align` audited — `all_align` re-anchors at parent CENTER, NOT parent top-left (per `widgets.md` text section). NEVER use `all_align` on a child positioned by absolute y.
-- Item 16 (rect): every widget's computed rect within parent bounds; children of `board_with_titlebar` clear the engine titlebar (y >= 32).
+- Rule 1: `@ui.WindowDestroy` decorator on every `Destroy()` method
+- Rule 5: every callback wrapped per `event-binding.md` matrix — NEVER bare bound (`btn.SetEvent(self.OnClick)`) NEVER self-capturing lambda (`btn.SetEvent(lambda: self.OnClick())`)
+- Rule 7: `OnPressEscapeKey()` returns `True` (not `None`, not `False`)
+- Rule 9: every user-visible string via `localeInfo.*` (root) or `uiScriptLocale.*` (uiscript dict) — NEVER hardcoded
+- Rule 11: `"not_pick"` flag on every decorative widget in uiscript dict
+- Rule 14: Python 2.7 — `//` (not `/`) for int division, `in` (not `has_key()`), keep `xrange`
+- Rule 15: every asset path `d:/ymir work/ui/...` lowercase forward-slash; NO invented paths
+- Rule 16: every `net.X` / `player.X` / `item.X` / `chr.X` / `app.X` / `wndMgr.X` / `chat.X` / `quest.X` call verified against `bindings.md` — NO invented APIs
+- Checklist item 15 (alignment): every widget with `all_align` audited — `all_align` re-anchors at parent CENTER, NOT parent top-left (per `widgets.md` text section). NEVER use `all_align` on a child positioned by absolute y.
+- Checklist item 16 (rect): every widget's computed rect within parent bounds; children of `board_with_titlebar` clear the engine titlebar (y >= 32).
 
 ### 2. Event-binding compliance (cross-check with `reference/event-binding.md`)
 
