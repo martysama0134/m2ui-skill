@@ -72,9 +72,11 @@ step2_rows=$(awk '
 ' "$README")
 assert_ge "README Step 2 augmentor rows" "6" "$step2_rows"
 
-# 5. SKILL.md has Step 1 + Step 2 sections (mirror)
-assert_file_grep "SKILL Step 1 section" "$SKILL" 'Step 1.*pick ONE primary archetype'
-assert_file_grep "SKILL Step 2 section" "$SKILL" 'Step 2.*pick zero or more augmentors'
+# 5. SKILL.md delegates anchor selection to anchors/README.md (single source of
+#    truth since the distillation pass) but must still state the tree's shape.
+assert_file_grep "SKILL delegates to anchors/README.md" "$SKILL" 'anchors/README\.md'
+assert_file_grep "SKILL states ONE-primary invariant" "$SKILL" 'ONE primary archetype'
+assert_file_grep "SKILL states augmentor invariant" "$SKILL" 'zero or more augmentors'
 
 # 6. activate.md has Step 1 + Step 2 sections (mirror)
 assert_file_grep "activate Step 1 section" "$ACTIVATE" 'Step 1.*pick ONE primary archetype'
@@ -106,29 +108,49 @@ for f in "${ANCHORS_DIR}"/[0-9][0-9]-*.md; do
     fi
 done
 
-# 9. Mirror-list comparison: SKILL.md / anchors/README.md / rules/m2ui-activate.md
-# must reference the SAME set of NN-name.md anchor filenames in their Step 1
-# and Step 2 tables. Drift across mirrors causes non-Claude agents to load
-# the wrong anchor list.
+# 9. Mirror-list comparison: anchors/README.md (canonical) and
+# rules/m2ui-activate.md (standalone mirror for non-Claude harnesses) must
+# reference the SAME set of NN-name.md anchor filenames. SKILL.md delegates
+# to README since the distillation pass, so it carries no full list — but
+# every NN-name anchor it does mention must exist on disk (no dangling refs).
 extract_anchor_refs() {
     local file="$1"
     grep -oE '[0-9][0-9]-[a-z0-9-]+\.md' "$file" | sort -u
 }
 
-skill_anchors=$(extract_anchor_refs "$SKILL")
 readme_anchors=$(extract_anchor_refs "$README")
 activate_anchors=$(extract_anchor_refs "$ACTIVATE")
 
-if [ "$skill_anchors" = "$readme_anchors" ] && [ "$readme_anchors" = "$activate_anchors" ]; then
-    anchor_count=$(echo "$skill_anchors" | wc -l | tr -d ' ')
-    echo "PASS: mirror-list agreement (3 files reference same $anchor_count anchors)"
+if [ "$readme_anchors" = "$activate_anchors" ]; then
+    anchor_count=$(echo "$readme_anchors" | wc -l | tr -d ' ')
+    echo "PASS: mirror-list agreement (README + activate reference same $anchor_count anchors)"
 else
-    echo "FAIL: mirror-list drift detected. SKILL/README/activate disagree on archetype list."
-    echo "  SKILL.md anchors:    $(echo "$skill_anchors" | tr '\n' ' ')"
+    echo "FAIL: mirror-list drift detected. README/activate disagree on archetype list."
     echo "  README.md anchors:   $(echo "$readme_anchors" | tr '\n' ' ')"
     echo "  activate.md anchors: $(echo "$activate_anchors" | tr '\n' ' ')"
     FAILURES=$((FAILURES + 1))
 fi
+
+skill_anchor_names=$(grep -oE '[0-9][0-9]-[a-z0-9-]+' "$SKILL" | sed 's/\.md$//' | sort -u)
+while IFS= read -r name; do
+    [ -z "$name" ] && continue
+    if [ -f "${ANCHORS_DIR}/${name}.md" ]; then
+        echo "PASS: SKILL anchor ref ${name} exists"
+    else
+        echo "FAIL: SKILL anchor ref ${name} does not exactly match a file in anchors/"
+        FAILURES=$((FAILURES + 1))
+    fi
+done <<< "$skill_anchor_names"
+
+# 10. SKILL.md must still name every augmentor inline (the one list it keeps).
+for n in 05 14 15 16 22 23; do
+    if grep -qE "\`${n}-[a-z0-9-]+\`" "$SKILL"; then
+        echo "PASS: SKILL names augmentor ${n}"
+    else
+        echo "FAIL: SKILL augmentor list missing ${n}"
+        FAILURES=$((FAILURES + 1))
+    fi
+done
 
 echo
 echo "=== Result: $FAILURES failure(s) ==="

@@ -29,6 +29,16 @@ assert_ge() {
     fi
 }
 
+assert_le() {
+    local name="$1"; local expected="$2"; local actual="$3"
+    if [ "$actual" -le "$expected" ]; then
+        echo "PASS: $name (<= $expected, got $actual)"
+    else
+        echo "FAIL: $name expected<=$expected actual=$actual"
+        FAILURES=$((FAILURES + 1))
+    fi
+}
+
 echo "=== test-mode-dispatch.sh ==="
 echo "SKILL: $SKILL"
 echo
@@ -86,6 +96,11 @@ assert_ge "m2ui-pre-emit-reviewer cross-link" "1" "$reviewer_ref"
 # 10. m2ui-activate.md mirror has same symptom branch
 activate_symptom=$(grep -c "Symptom report" "$ACTIVATE")
 assert_ge "m2ui-activate.md symptom branch (mirror)" "1" "$activate_symptom"
+
+# 11. Word budget: SKILL.md loads on every trigger — guard against re-bloat.
+#     Rules/checklist detail belongs in reference/ files, not here.
+skill_words=$(wc -w < "$SKILL")
+assert_le "SKILL.md word budget" "1600" "$skill_words"
 
 echo
 echo "=== Result: $FAILURES failure(s) ==="
