@@ -2528,6 +2528,28 @@ def AskConfirm(self):
     ...
 ```
 
+### Stale one-shot handoff state
+
+Values stashed on a shared/singleton window to hand off between flows
+(window A sets attrs on window B, then opens it) must be READ-ONCE:
+
+```python
+# WRONG: stash read with getattr default, never cleared
+def Open(self):
+    model = getattr(self, "handoffModel", 0)   # keeps LAST value forever
+    net.SendOpenPacket(model)                  # later normal open re-sends stale model
+
+# CORRECT: consume into locals, then reset the stash to neutral
+def Open(self):
+    model = getattr(self, "handoffModel", 0)
+    self.handoffModel = 0                      # consume-and-clear
+    net.SendOpenPacket(model)
+```
+
+Without the clear, a later unrelated open of the same singleton re-sends
+the previous flow's values (e.g. server rejects a plain open because it
+still advertises a premium option).
+
 ### Network packet flooding
 
 ```python

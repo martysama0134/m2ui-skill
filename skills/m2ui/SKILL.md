@@ -91,6 +91,9 @@ All modes, all generated code. Reference files cite these by number — numberin
 19. <EXTREMELY-IMPORTANT>
     **Verify setter accepts `*args` before Pattern B / Pattern E** — before emitting `receiver.SetX(ui.__mem_func__(self.M), arg, ...)` or `SAFE_SetEvent(self.M, arg, ...)` with extra args, READ the setter in `pack/pack/root/ui.py`. If it is 1-arg (`def SetX(self, event):`), the call raises `TypeError` at runtime. Fix: (a) augment the setter for `*args` per `reference/framework-augmentations.md` (preferred), or (b) fall back to Pattern C proxy lambda. Common 1-arg setters: `EditLine.Set{Return,Escape,Tab}Event`, `SlotWindow.Set*Event`. Never trust by name — verify the actual file.
     </EXTREMELY-IMPORTANT>
+20. <EXTREMELY-IMPORTANT>
+    **GetChild name contract** — every `GetChild("X")` must match a REGISTERED name: a `"name" : "X"` in the target uiscript's `children` tree, or an explicit `InsertChild("X", widget)` on the code path. The root window dict's own `name` is NOT registered — the window IS `self`; asking for it raises `KeyError` and kills the open flow. `GetChild` RAISES on a missing key, it never returns `None` — `GetChild(x) or fallback` is dead code. Cross-check every `GetChild` before emitting.
+    </EXTREMELY-IMPORTANT>
 
 ## Pre-Emit Self-Review
 
@@ -119,6 +122,7 @@ Silently verify each item against the draft; any failure → revise and re-check
 17. Rule 17: pre-existing Destroy bodies intact; owned-widget calls guarded with `if self.X:` (including inside helper methods the body calls)
 18. Rule 18: all new `.py` content ASCII-only (carve-outs per rule: pre-existing non-ASCII, verbatim user content, locale files)
 19. Rule 19: every Pattern B / Pattern E site with extra args checked against the actual setter signature in `ui.py` (augmented or downgraded to Pattern C)
+20. Rule 20: every `GetChild` name is registered (uiscript child `"name"` or `InsertChild` call; root window's own name never is; no `GetChild(x) or fallback`)
 
 **Optional second pass:** for high-stakes generations (screenshot mode, multi-file edits, gated windows) or when the silent review feels like cargo-cult, dispatch the `m2ui-pre-emit-reviewer` subagent before emission — independent audit, cites file:line, proposes no fixes. Distinct from diagnose mode (which audits user-supplied files).
 

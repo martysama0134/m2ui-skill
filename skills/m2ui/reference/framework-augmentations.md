@@ -249,6 +249,42 @@ When m2ui generates code that calls `QuestionDialog2.SetText()`, verify the targ
 
 ---
 
+## ScrollBar.SetPos rounding augmentation (ui.py)
+
+### What it fixes
+
+Base `ScrollBar.SetPos` quantizes with `int(newPos)` (floor). When the thumb
+is enlarged (`SetMiddleBarSize` with a big page fraction), the drag range in
+pixels is small, so a wheel step (`scrollStep / 4`) can be sub-pixel:
+
+- scroll down: `int(px + frac) = px` — stuck
+- scroll up: `int(px - frac) = px - 1` — moves
+
+and `OnMove` writes the quantized pixel back into the current position, so
+the bar locks permanently in one direction ("scrolls only up").
+
+### The augmentation
+
+In `ScrollBar.SetPos` (ui.py), replace the floor with symmetric rounding:
+
+```python
+# before
+self.middleBar.SetPosition(0, int(newPos))
+# after
+self.middleBar.SetPosition(0, int(round(newPos)))
+```
+
+(Adapt to the fork's exact body — the change is `int(x)` → `int(round(x))`
+on the position write.)
+
+### Safety
+
+- Drag is unaffected — it reads the real pointer position, not the quantized write-back.
+- Scrollbars with a large travel range are typically unaffected — whether a step crosses a pixel depends on travel range and `scrollStep`; rounding only changes which pixel a borderline step lands on.
+- No signature change, no callers break.
+
+---
+
 ## AniImageBox frame event augmentation (C++ + ui.py)
 
 ### What it adds

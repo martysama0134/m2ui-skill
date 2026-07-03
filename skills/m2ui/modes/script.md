@@ -34,6 +34,10 @@ class for it, follow this checklist:
    the uiscript dict tree (recursive, including nested children).
    Use these EXACT names in `GetChild()` calls — preserve typos and
    unconventional naming (e.g., `imporve_slot`, `impove_text_window`).
+   The root window dict's own `name` is NOT a child — the loader
+   registers only its `children`; the window itself is `self`.
+   `GetChild` raises `KeyError` on a miss (never returns `None`), so
+   `GetChild(x) or fallback` is dead code. (Critical Rule 20.)
 
 2. **Identify the board type** — check if the root child is `"board"`
    or `"board_with_titlebar"`. For `board_with_titlebar`, the close

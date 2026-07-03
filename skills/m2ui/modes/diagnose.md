@@ -39,6 +39,17 @@ a brief explanation. Group by severity: Critical, Important, Minor.
 
 - [ ] **Pattern B applied to non-`*args` setter** — `receiver.SetX(ui.__mem_func__(self.M), arg, ...)` where the setter in `pack/pack/root/ui.py` is `def SetX(self, event):` (1-arg only). Runtime crash with `TypeError: SetX() takes exactly 2 arguments (N given)` the first time the binding executes. Fix: augment the setter in `ui.py` to accept `*args` and dispatch them at the handler (preserving native dispatch args; see `reference/framework-augmentations.md`) OR rewrite the call site as Pattern C with `proxy(self)`. Common offenders in canonical ui.py: `EditLine.SetReturnEvent`/`SetEscapeEvent`/`SetTabEvent`, `SlotWindow.SetOverInItemEvent`/`SetSelectItemSlotEvent`/`SetUnselectItemSlotEvent`/`SetPressedSlotButtonEvent`/`SetUseSlotEvent`/`SetSelectEmptySlotEvent`/`SetUnselectEmptySlotEvent`/`SetOverOutItemEvent`. Verify per-fork.
 
+### Widget-Name Contract (Critical)
+
+- [ ] **`GetChild` name not registered** — any `GetChild("X")` where `"X"`
+  has no matching `"name" : "X"` in the uiscript's `children` tree AND no
+  `InsertChild("X", ...)` on the code path. Guaranteed `KeyError` at load.
+  Includes the root window's own `name` — the loader registers only
+  children; the window is `self`.
+- [ ] **`GetChild(x) or fallback`** — dead code: `GetChild` raises
+  `KeyError` on a miss, never returns a falsy value. Use a verified name
+  or `try/except KeyError` (prefer the former).
+
 ### Missing Cleanup (Critical)
 
 - [ ] **No `Initialize()` method** — instance vars not reset on destroy.
@@ -48,6 +59,11 @@ a brief explanation. Group by severity: Critical, Important, Minor.
 - [ ] **Missing `ClearDictionary()`** — script-backed window (uses
   `LoadScriptFile`) but `Destroy()` doesn't call `ClearDictionary()`.
 - [ ] **Missing `__del__`** — no `ui.ScriptWindow.__del__(self)` call.
+- [ ] **One-shot handoff state never cleared** — values stashed on a
+  shared/singleton window for a cross-window handoff and read with
+  `getattr(self, x, 0)` but never reset. A later unrelated flow re-sends
+  the stale values. Fix: consume into locals at use, then reset the
+  stash to its neutral value.
 
 ### Event Handlers (Important)
 

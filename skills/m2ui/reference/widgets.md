@@ -373,6 +373,14 @@ Standard scrollbar with up/down buttons and a draggable middle bar.
 - `SetScrollStep(step)` -- set step size for up/down buttons (default 0.20)
 - `LockScroll()` / `UnlockScroll()` -- prevent/allow scrolling
 
+**Wiring notes (dynamic lists):**
+- The uiscript loader already calls `SetScrollBarSize(size)` from the dict's `size` key (positions up/down buttons + drag restrict area) -- do not repeat it in the root class unless resizing at runtime.
+- In the root class: `SetScrollEvent(ui.__mem_func__(self.__OnScroll))` + `SetMiddleBarSize(min(1.0, float(visibleH) / max(1, totalH)))` — thumb size as a fraction of the track; clamp at 1.0 (content shorter than viewport gives a ratio > 1.0).
+- In `__OnScroll`, reposition content by `offset = int(-scrollBar.GetPos() * (totalH - visibleH))` -- `GetPos()` returns 0.0-1.0.
+- `Show()` the scrollbar only when `total > visible`.
+- Clip each dynamic row/button to the list container: `btn.SetClippingMaskWindow(self.listBoard)` (see `patterns.md` Section 6).
+- Base `SetPos` floors to whole pixels; with a large thumb (small page size) sub-pixel wheel steps stick in one direction -- augment with `int(round())` per `framework-augmentations.md` ScrollBar section.
+
 ---
 
 ### thin_scrollbar
@@ -396,6 +404,16 @@ Even smaller variant of scrollbar.
 - **Dict properties:** same as `scrollbar`
 
 **Notes:** Uses `scrollbar_small_thin_*` image assets. No bar slot background.
+
+---
+
+### render_target (fork-augmented)
+
+3D model preview area (character/shop model viewers). Only on forks that ship a render-target system, and the API is NOT portable across forks -- before emitting, verify ALL of: the element type in the fork's `PythonScriptLoader`, the widget's actual methods in `ui.py`, and the `renderTarget` (or equivalent) module bindings per Critical Rule 16.
+
+- **Index wiring varies by fork.** Two common shapes: the widget owns an engine-assigned index read via `GetRenderTargetIndex()`, or the code assigns one explicitly via `SetRenderTarget(index)`. Match the fork's shape; NEVER hardcode an index the widget can provide.
+- **Timing:** query/drive the widget only after the window is sized and shown (`renderTarget.SelectModel(idx, vnum)`-style calls against an unsized target render nothing).
+- **Wheel:** these widgets often consume their own mouse wheel for zoom (handler returns `True`); a window-level `OnMouseWheel` list-scroll then coexists via engine bubbling. Verify the fork's handler before relying on it.
 
 ---
 
@@ -445,7 +463,7 @@ Single-line text display.
 - `SetText(text)` / `GetText()` -- set/get text content
 - `SetFontName(fontName)` -- change font
 - `SetFontColor(r, g, b)` -- set color (float 0.0-1.0)
-- `SetPackedFontColor(color)` -- set packed color (e.g. `0xFFFFFFFF`)
+- `SetPackedFontColor(color)` -- set packed color (e.g. `0xFFFFFFFF`). Takes a packed ARGB int directly -- never `int(color, 16)` on a value that is already an int (py2 `TypeError`); store table colors as `0xAARRGGBB` ints with alpha baked in and pass through unchanged
 - `SetHorizontalAlignLeft()` / `SetHorizontalAlignCenter()` / `SetHorizontalAlignRight()`
 - `SetVerticalAlignTop()` / `SetVerticalAlignCenter()` / `SetVerticalAlignBottom()`
 - `SetOutline(value=True)` -- enable outline rendering
