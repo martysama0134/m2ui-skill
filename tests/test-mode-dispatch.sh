@@ -99,7 +99,10 @@ assert_ge "m2ui-activate.md symptom branch (mirror)" "1" "$activate_symptom"
 
 # 11. Word budget: SKILL.md loads on every trigger — guard against re-bloat.
 #     Rules/checklist detail belongs in reference/ files, not here.
-skill_words=$(wc -w < "$SKILL")
+#     LC_ALL=C pins word semantics: UTF-8 locales (ubuntu-latest) count
+#     standalone em-dash/arrow tokens as words, C locale does not — without
+#     the pin the same file measures ~50 words larger on CI than locally.
+skill_words=$(LC_ALL=C wc -w < "$SKILL")
 assert_le "SKILL.md word budget" "1600" "$skill_words"
 
 echo
